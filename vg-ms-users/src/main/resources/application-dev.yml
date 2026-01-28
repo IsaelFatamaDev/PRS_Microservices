@@ -1,0 +1,88 @@
+spring:
+     r2dbc:
+          url: r2dbc:postgresql://localhost:5432/sistemajass
+          username: sistemajass_user
+          password: 123456
+          pool:
+               enabled: true
+               initial-size: 10
+               max-size: 20
+               max-idle-time: 30m
+               validation-query: SELECT 1
+
+     flyway:
+          url: jdbc:postgresql://localhost:5432/sistemajass
+          user: sistemajass_user
+          password: 123456
+          enabled: true
+
+rabbitmq:
+     exchange:
+          users: users.exchange
+     queue:
+          user-created: users.created.queue
+          user-updated: users.updated.queue
+          user-deleted: users.deleted.queue
+     routing-key:
+          user-created: users.created
+          user-updated: users.updated
+          user-deleted: users.deleted
+
+services:
+     authentication:
+          url: http://localhost:8082
+     organizations:
+          url: http://localhost:8083
+     notification:
+          url: http://localhost:8084
+
+resilience4j:
+     circuitbreaker:
+          instances:
+               authenticationService:
+                    register-health-indicator: true
+                    sliding-window-size: 10
+                    minimum-number-of-calls: 5
+                    permitted-number-of-calls-in-half-open-state: 3
+                    automatic-transition-from-open-to-half-open-enabled: true
+                    wait-duration-in-open-state: 30s
+                    failure-rate-threshold: 50
+                    event-consumer-buffer-size: 10
+               organizationService:
+                    register-health-indicator: true
+                    sliding-window-size: 10
+                    minimum-number-of-calls: 5
+                    permitted-number-of-calls-in-half-open-state: 3
+                    automatic-transition-from-open-to-half-open-enabled: true
+                    wait-duration-in-open-state: 30s
+                    failure-rate-threshold: 50
+                    event-consumer-buffer-size: 10
+               notificationService:
+                    register-health-indicator: true
+                    sliding-window-size: 10
+                    minimum-number-of-calls: 5
+                    permitted-number-of-calls-in-half-open-state: 3
+                    automatic-transition-from-open-to-half-open-enabled: true
+                    wait-duration-in-open-state: 30s
+                    failure-rate-threshold: 50
+                    event-consumer-buffer-size: 10
+     retry:
+          instances:
+               authenticationService:
+                    max-attempts: 3
+                    wait-duration: 1s
+               organizationService:
+                    max-attempts: 3
+                    wait-duration: 1s
+               notificationService:
+                    max-attempts: 3
+                    wait-duration: 1s
+
+logging:
+  level:
+    root: INFO
+    pe.edu.vallegrande.vgmsusers: DEBUG
+    org.springframework.r2dbc: DEBUG
+    io.r2dbc.postgresql.query: DEBUG
+    org.springframework.amqp: DEBUG
+    org.flywaydb: DEBUG

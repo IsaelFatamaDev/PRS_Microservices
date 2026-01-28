@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  
+  cloud:
+    gateway:
+      routes: []
+        
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    pe.edu.vallegrande: DEBUG

@@ -1,0 +1,44 @@
+# =============================================================================
+# CONFIGURACIÓN DE DESARROLLO - MICROSERVICIO DE PAGO
+# =============================================================================
+spring:
+  r2dbc:
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/payment_dev}
+    username: ${SPRING_R2DBC_USERNAME:postgres}
+    password: ${SPRING_R2DBC_PASSWORD:password}
+    pool:
+      initial-size: 5
+      max-size: 20
+      max-idle-time: 30m
+      max-acquire-time: 60s
+      max-create-connection-time: 60s
+      validation-query: SELECT 1
+
+# =============================================================================
+# CONFIGURACIÓN DEL SERVIDOR - DESARROLLO
+# =============================================================================
+server:
+  port: 8083
+
+# =============================================================================
+# CONFIGURACIÓN DE CLIENTES EXTERNOS - DESARROLLO
+# =============================================================================
+microservices:
+  users:
+    name: ms-users
+    url: http://localhost:8081/internal
+    timeout: 10000
+
+  organization:
+    name: ms-organization
+    url: http://localhost:8082/api/management
+    timeout: 10000
+
+# =============================================================================
+# CONFIGURACIÓN DE LOGGING - DESARROLLO
+# =============================================================================
+logging:
+  level:
+    pe.edu.vallegrande.vg_ms_payment: DEBUG
+    org.springframework.r2dbc: DEBUG
+    io.r2dbc.postgresql: DEBUG

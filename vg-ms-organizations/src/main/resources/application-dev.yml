@@ -1,0 +1,21 @@
+spring:
+     data:
+          mongodb:
+               uri: mongodb://localhost:27017/JASS_DIGITAL
+               auto-index-creation: true
+
+     rabbitmq:
+          host: localhost
+          port: 5672
+          username: guest
+          password: guest
+
+services:
+     vg-ms-users:
+          url: http://localhost:8081
+
+logging:
+     level:
+          pe.edu.vallegrande: DEBUG
+          org.springframework.data.mongodb: DEBUG
+          org.springframework.amqp: DEBUG

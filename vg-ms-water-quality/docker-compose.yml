@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  water-quality-ms:
+    image: marianayeli/vg-ms-water-quality:latest
+    ports:
+      - "8087:8087"
+    env_file:
+      - .env
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_ISSUER_URI=${JWT_ISSUER_URI}
+      - JWT_JWK_SET_URI=${JWT_JWK_SET_URI}
+      - SERVER_PORT=${SERVER_PORT:-8087}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - USER_SERVICE_URL=${USER_SERVICE_URL:-https://genetic-yolane-vallegrandesistema-a92b57a3.koyeb.app}
+      - ORGANIZATION_SERVICE_URL=${ORGANIZATION_SERVICE_URL:-https://lab.vallegrande.edu.pe/jass/ms-organization}
+      - ORGANIZATION_SERVICE_TOKEN=${ORGANIZATION_SERVICE_TOKEN}
+      - JAVA_OPTS=-Xms32m -Xmx128m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+UseStringDeduplication -Xss256k
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+          cpus: '0.5'
+        reservations:
+          memory: 100M
+          cpus: '0.25'
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8087/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

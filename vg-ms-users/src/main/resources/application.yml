@@ -1,0 +1,23 @@
+spring:
+     application:
+          name: vg-ms-users
+
+     profiles:
+          active: ${SPRING_PROFILE:dev}
+
+server:
+     port: ${PORT:8081}
+
+management:
+     endpoints:
+          web:
+               exposure:
+                    include: health,info,metrics
+     endpoint:
+          health:
+               show-details: always
+
+logging:
+     level:
+          root: INFO
+          pe.edu.vallegrande.vgmsusers: DEBUG

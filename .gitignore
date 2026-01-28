@@ -1,0 +1,3 @@
+# Exclude target directories from all microservices
+target/
+**/target/

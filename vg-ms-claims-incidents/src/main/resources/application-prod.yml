@@ -1,0 +1,94 @@
+# ================================
+# PRODUCTION PROFILE CONFIGURATION
+# ================================
+
+# ================================
+# MONGODB CONFIGURATION (PROD)
+# ================================
+spring:
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URL}  # Obligatorio desde variables de entorno
+      database: ${SPRING_DATA_MONGODB_DATABASE:claims-incidents}
+      auto-index-creation: false  # No crear índices automáticamente en producción
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+# ================================
+# EXTERNAL SERVICES (PROD)
+# ================================
+app:
+  external:
+    user-service:
+      base-url: ${USER_SERVICE_URL:https://lab.vallegrande.edu.pe/jass/ms-gateway}
+      timeout: ${USER_SERVICE_TIMEOUT:10s}  # Timeout más corto en producción
+      retry-attempts: ${USER_SERVICE_RETRY:2}
+      circuit-breaker:
+        enabled: ${USER_SERVICE_CIRCUIT_BREAKER:true}
+        failure-threshold: 3
+        timeout: 30s
+
+# ================================
+# SECURITY CONFIGURATION (PROD)
+# ================================
+security:
+  jwt:
+    private-key: ${JWT_PRIVATE_KEY}  # Obligatorio desde variables de entorno
+    public-key: ${JWT_PUBLIC_KEY}    # Obligatorio desde variables de entorno
+    expiration: ${JWT_EXPIRATION:1800000}  # 30 minutos (más seguro)
+
+# ================================
+# SWAGGER UI (DISABLED IN PROD)
+# ================================
+springdoc:
+  swagger-ui:
+    enabled: false  # Deshabilitado por seguridad
+  api-docs:
+    enabled: false  # Deshabilitado por seguridad
+
+# ================================
+# LOGGING (PRODUCTION - MINIMAL)
+# ================================
+logging:
+  level:
+    root: WARN
+    pe.edu.vallegrande: INFO
+    org.springframework.web: WARN
+    org.springframework.data.mongodb: WARN
+    org.springframework.web.reactive: WARN
+    org.springframework.security: WARN
+    reactor.netty: ERROR
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE_PATH:/var/log/incidents-service/incidents-service.log}
+    max-size: 50MB
+    max-history: 90  # 90 días
+    total-size-cap: 1GB
+
+# ================================
+# ACTUATOR (RESTRICTED IN PROD)
+# ================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus  # Solo endpoints necesarios
+  endpoint:
+    health:
+      show-details: when-authorized  # Solo mostrar detalles con autorización
+  metrics:
+    export:
+      prometheus:
+        enabled: true  # Para monitoreo con Prometheus
+
+# ================================
+# SERVER CONFIGURATION (PROD)
+# ================================
+server:
+  shutdown: graceful  # Graceful shutdown
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false

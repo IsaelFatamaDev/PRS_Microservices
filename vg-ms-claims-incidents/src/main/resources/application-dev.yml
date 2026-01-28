@@ -1,0 +1,78 @@
+# ================================
+# DEVELOPMENT PROFILE CONFIGURATION
+# ================================
+
+# ================================
+# MONGODB CONFIGURATION (DEV)
+# ================================
+spring:
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URL:mongodb+srv://santiago:santiago19@cluster0.b7mgq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0}
+      database: ${SPRING_DATA_MONGODB_DATABASE:claims-incidents}
+      auto-index-creation: true  # Crear índices automáticamente en desarrollo
+
+# ================================
+# EXTERNAL SERVICES (DEV)
+# ================================
+app:
+  external:
+    user-service:
+      base-url: ${USER_SERVICE_URL:https://lab.vallegrande.edu.pe/jass/ms-gateway}
+      timeout: ${USER_SERVICE_TIMEOUT:30s}
+      retry-attempts: ${USER_SERVICE_RETRY:3}
+      circuit-breaker:
+        enabled: ${USER_SERVICE_CIRCUIT_BREAKER:true}
+        failure-threshold: 5
+        timeout: 60s
+
+# ================================
+# SECURITY CONFIGURATION (DEV)
+# ================================
+security:
+  jwt:
+    private-key: ${JWT_PRIVATE_KEY:}
+    public-key: ${JWT_PUBLIC_KEY:}
+    expiration: ${JWT_EXPIRATION:3600000}  # 1 hora
+
+# ================================
+# SWAGGER UI (ENABLED IN DEV)
+# ================================
+springdoc:
+  swagger-ui:
+    enabled: true
+  api-docs:
+    enabled: true
+
+# ================================
+# LOGGING (VERBOSE IN DEV)
+# ================================
+logging:
+  level:
+    root: INFO
+    pe.edu.vallegrande: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.data.mongodb: DEBUG
+    org.springframework.web.reactive: DEBUG
+    org.springframework.security: DEBUG
+    reactor.netty: INFO
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE_PATH:./logs/dev/incidents-service.log}
+    max-size: 10MB
+    max-history: 7
+    total-size-cap: 100MB
+
+# ================================
+# ACTUATOR (MORE EXPOSED IN DEV)
+# ================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # Exponer todos los endpoints en desarrollo
+  endpoint:
+    health:
+      show-details: always

@@ -1,0 +1,97 @@
+version: "3.8"
+
+services:
+  # =============================================================================
+  # MICROSERVICIO DE RECLAMOS E INCIDENTES
+  # =============================================================================
+  vg-ms-claims-incidents:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: vallegrande/vg-ms-claims-incidents:latest
+    container_name: vg-ms-claims-inc
+    restart: unless-stopped
+    
+    # ❌ NO EXPONER PUERTOS PÚBLICAMENTE
+    # Principio: La comunicación será interna entre microservicios
+    # Solo el API Gateway debe estar expuesto públicamente
+    # ports:
+    #   - "8089:8089"  # ✅ COMENTADO - No exponer públicamente
+    
+    # ✅ Puerto interno solo accesible dentro de la red Docker (jass-network)
+    expose:
+      - "8089"
+    
+    environment:
+      # ========================================
+      # CONFIGURACIÓN BÁSICA
+      # ========================================
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - SERVER_PORT=8089
+      
+      # ========================================
+      # MONGODB ATLAS - BASE DE DATOS PERSONAL
+      # ========================================
+      # ℹ️ Base de datos propia del microservicio en MongoDB Atlas
+      - SPRING_DATA_MONGODB_URL=${SPRING_DATA_MONGODB_URL:-mongodb+srv://santiago:santiago19@cluster0.b7mgq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0}
+      - SPRING_DATA_MONGODB_DATABASE=${SPRING_DATA_MONGODB_DATABASE:-claims-incidents}
+      
+      # ========================================
+      # SEGURIDAD JWT/JWE
+      # ========================================
+      # Para comunicación MS-to-MS (Internal APIs)
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:-}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY:-}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-3600000}
+      
+      # ========================================
+      # SERVICIOS EXTERNOS (MS-to-MS)
+      # ========================================
+      # ✅ API Gateway para obtener usuarios
+      - USER_SERVICE_URL=${USER_SERVICE_URL:-https://lab.vallegrande.edu.pe/jass/ms-gateway}
+      - USER_SERVICE_TIMEOUT=${USER_SERVICE_TIMEOUT:-30s}
+      - USER_SERVICE_RETRY=${USER_SERVICE_RETRY:-3}
+      - USER_SERVICE_CIRCUIT_BREAKER=${USER_SERVICE_CIRCUIT_BREAKER:-true}
+      
+      # ========================================
+      # CONFIGURACIÓN DE APLICACIÓN
+      # ========================================
+      - APP_NAME=Claims Incidents Microservice
+      - APP_DESCRIPTION=Microservicio para gestión de reclamos e incidentes
+      - APP_VERSION=1.0.0
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - SECURITY_LOG_LEVEL=${SECURITY_LOG_LEVEL:-DEBUG}
+      
+      # ========================================
+      # CORS (si aplica)
+      # ========================================
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:4200}
+      - CORS_ALLOWED_METHODS=${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,PATCH,OPTIONS}
+      - CORS_ALLOWED_HEADERS=${CORS_ALLOWED_HEADERS:-*}
+      
+      # ========================================
+      # JAVA OPTIONS
+      # ========================================
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseG1GC
+    
+    volumes:
+      - ./logs:/app/logs
+    
+    networks:
+      - jass-network
+    
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8089/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  jass-network:
+    driver: bridge
+    name: jass-digital-network 

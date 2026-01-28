@@ -1,0 +1,34 @@
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://mongo:27017/notification_db}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:admin}
+    password: ${RABBITMQ_PASSWORD:admin123}
+
+  mail:
+    enabled: true
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+
+whatsapp:
+  api:
+    url: ${WHATSAPP_API_URL}
+    enabled: ${WHATSAPP_ENABLED:true}
+
+sms:
+  gateway:
+    url: ${SMS_GATEWAY_URL}
+    enabled: ${SMS_ENABLED:true}
+
+logging:
+  level:
+    root: INFO
+    pe.edu.vallegrande.vgmsnotification: INFO
+  file:
+    name: /app/logs/vg-ms-notification.log

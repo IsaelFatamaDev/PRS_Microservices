@@ -1,0 +1,23 @@
+spring:
+     data:
+          mongodb:
+               uri: ${MONGODB_URI:mongodb://mongo:27017/JASS_DIGITAL}
+               auto-index-creation: true
+
+     rabbitmq:
+          host: ${RABBITMQ_HOST:wasp.rmq.cloudamqp.com}
+          port: ${RABBITMQ_PORT:5672}
+          username: ${RABBITMQ_USERNAME}
+          password: ${RABBITMQ_PASSWORD}
+          virtual-host: ${RABBITMQ_VHOST:/}
+          ssl:
+               enabled: ${RABBITMQ_SSL_ENABLED:true}
+
+services:
+     vg-ms-users:
+          url: ${USER_SERVICE_URL:http://vg-ms-users:8081}
+
+logging:
+     level:
+          pe.edu.vallegrande: INFO
+          root: WARN

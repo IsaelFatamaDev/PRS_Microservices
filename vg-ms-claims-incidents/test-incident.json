@@ -1,0 +1,19 @@
+{
+  "incidentCode": "INC001",
+  "organizationId": "64abc123def4567890123456",
+  "incidentTypeId": "684e1b0269c88a11f7da59d7",
+  "incidentCategory": "DISTRIBUCION",
+  "zoneId": "64ghi123def4567890123456",
+  "incidentDate": "2025-06-28T17:00:00.000Z",
+  "title": "YYYY",
+  "description": "YYYYYYY",
+  "severity": "HIGH",
+  "status": "REPORTED",
+  "affectedBoxesCount": 5,
+  "reportedByUserId": "64def123abc4567890123456",
+  "assignedToUserId": "684dfb6f69c88a11f7da59d2",
+  "resolvedByUserId": "684dfb6f69c88a11f7da59d2",
+  "resolved": true,
+  "resolutionNotes": "YYYYYYY",
+  "recordStatus": "ACTIVE"
+} 

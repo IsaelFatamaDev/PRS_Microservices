@@ -1,0 +1,76 @@
+# Archivos de desarrollo y git
+.git
+.gitignore
+.gitattributes
+*.md
+README*
+
+# Dockerfiles y scripts (excepto el que usamos)
+Dockerfile
+Dockerfile.optimized
+!Dockerfile.ultra-optimized
+.dockerignore
+build-optimized.sh
+
+# Archivos de IDE y editores
+.idea/
+.vscode/
+.eclipse/
+.settings/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Target completo (Maven lo reconstruirá)
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# Logs y temporales
+*.log
+logs/
+*.tmp
+*.temp
+*.pid
+
+# Configuraciones locales y de desarrollo
+application-local.yml
+application-dev.yml
+application-test.yml
+*.properties.local
+
+# Documentación y PDFs
+docs/
+*.pdf
+*.doc
+*.docx
+
+# Archivos de prueba (no necesarios en producción)
+src/test/
+**/test/
+
+# Cache y dependencias de otros gestores
+node_modules/
+.npm
+.cache
+.gradle/
+
+# Archivos de backup y temporales
+*.bak
+*.backup
+*.orig
+*.rej
+
+# Archivos de configuración de herramientas
+.editorconfig
+.eslintrc*
+.prettierrc*
+jest.config.*
+webpack.config.*

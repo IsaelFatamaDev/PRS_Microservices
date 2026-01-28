@@ -1,0 +1,35 @@
+# application.yml - Configuración Base (común para todos los perfiles)
+# Los perfiles específicos están en application-dev.yml y application-prod.yml
+
+server:
+  port: ${SERVER_PORT}
+
+spring:
+  application:
+    name: vg-ms-water-quality
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI}
+          jwk-set-uri: ${JWT_JWK_SET_URI}
+
+# Configuración de servicios externos
+user-service:
+  base-url: ${USER_SERVICE_URL}
+  timeout: ${USER_SERVICE_TIMEOUT:3000}
+
+organization-service:
+  base-url: ${ORGANIZATION_SERVICE_URL}
+  token: ${ORGANIZATION_SERVICE_TOKEN}
+  timeout: ${ORGANIZATION_SERVICE_TIMEOUT:3000}
+
+# Información de la aplicación
+info:
+  app:
+    name: Water Quality Microservice
+    description: Microservicio para gestión de calidad de agua - Sistema JASS Digital
+    version: 1.0.0

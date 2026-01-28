@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  whatsapp-gateway:
+    build: .
+    container_name: whatsapp-gateway
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+    volumes:
+      # Guardar sesión de WhatsApp (NO perder al reiniciar)
+      - whatsapp_session:/app/.wwebjs_auth
+      - whatsapp_cache:/app/.wwebjs_cache
+    networks:
+      - notification-network
+
+volumes:
+  whatsapp_session:
+    driver: local
+  whatsapp_cache:
+    driver: local
+
+networks:
+  notification-network:
+    external: true  # Usar la red del microservicio principal

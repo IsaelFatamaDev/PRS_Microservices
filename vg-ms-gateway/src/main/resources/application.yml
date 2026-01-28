@@ -1,0 +1,83 @@
+server:
+     port: ${SERVER_PORT:9090}
+
+spring:
+     application:
+          name: vg-ms-gateway
+     profiles:
+          active: ${SPRING_PROFILES_ACTIVE:dev}
+
+     security:
+          oauth2:
+               resourceserver:
+                    jwt:
+                         jwk-set-uri: ${KEYCLOAK_JWK_URI:https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass/protocol/openid-connect/certs}
+                         issuer-uri: ${KEYCLOAK_ISSUER_URI:https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass}
+
+     cloud:
+          gateway:
+               httpclient:
+                    connect-timeout: 1000
+                    response-timeout: 60s
+               default-filters:
+                    - name: Retry
+                      args:
+                           retries: 2
+                           methods: GET,POST,PUT,DELETE
+                           backoff:
+                                firstBackoff: 50ms
+                                maxBackoff: 500ms
+                                factor: 2
+                    - name: CircuitBreaker
+                      args:
+                           name: default
+                           fallbackUri: forward:/fallback
+               globalcors:
+                    cors-configurations:
+                         "[/**]":
+                              allowedOriginPatterns: "*"
+                              allowedMethods: "*"
+                              allowedHeaders: "*"
+                              allowCredentials: true
+
+# Actuator Configuration
+management:
+     endpoints:
+          web:
+               exposure:
+                    include: health,info,metrics,prometheus
+     endpoint:
+          health:
+               show-details: always
+
+# Service URLs
+users:
+     service:
+          url: ${USERS_SERVICE_URL:https://genetic-yolane-vallegrandesistema-a92b57a3.koyeb.app}
+authentication:
+     service:
+          url: ${AUTH_SERVICE_URL:https://lab.vallegrande.edu.pe/jass/ms-authentication}
+organizations:
+     service:
+          url: ${ORG_SERVICE_URL:https://lab.vallegrande.edu.pe/jass/ms-organization}
+distribution:
+     service:
+          url: ${DIST_SERVICE_URL:https://related-cathi-victorcuaresmadev-dbe2b7bc.koyeb.app}
+infrastructure:
+     service:
+          url: ${INFRA_SERVICE_URL:https://rolling-xaviera-infrastructure-ms-f69d285a.koyeb.app}
+payments:
+     service:
+          url: ${PAYMENTS_SERVICE_URL:https://lab.vallegrande.edu.pe/jass/ms-payments}
+waterquality:
+     service:
+          url: ${WATER_SERVICE_URL:https://lab.vallegrande.edu.pe/jass/ms-water-quality}
+inventory:
+     service:
+          url: ${INVENTORY_SERVICE_URL:https://maximum-odele-vgdemo-a6330e3c.koyeb.app}
+claim-incidents:
+     service:
+          url: ${CLAIM_SERVICE_URL:https://lab.vallegrande.edu.pe/jass/ms-claim-incidents}
+notifications:
+     service:
+          url: ${NOTIFICATIONS_SERVICE_URL:http://34.192.209.199:3000}

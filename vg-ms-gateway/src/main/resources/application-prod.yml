@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  
+  cloud:
+    gateway:
+      routes: []
+
+logging:
+  level:
+    root: INFO
+    pe.edu.vallegrande: INFO

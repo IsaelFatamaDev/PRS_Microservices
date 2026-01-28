@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: vg-ms-organizations
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  output:
+    ansi:
+      enabled: always
+
+server:
+  port: 8082
+
+logging:
+  level:
+    root: INFO
+    pe.edu.vallegrande: DEBUG
+    org.springframework.data.mongodb: DEBUG

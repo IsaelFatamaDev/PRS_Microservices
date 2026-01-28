@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: notification-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: notification_db
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - notification-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: notification-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - notification-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vg-ms-notification
+    restart: unless-stopped
+    ports:
+      - "8089:8089"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      MONGODB_URI: mongodb://mongodb:27017/notification_db
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: admin
+      RABBITMQ_PASSWORD: admin123
+
+      # Email Configuration (CAMBIAR EN PRODUCCIÓN)
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+
+      # WhatsApp Configuration (Número propio)
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://whatsapp-gateway:3001}
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-false}
+
+      # SMS Gateway Configuration (Local)
+      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-http://sms-gateway:3002}
+      SMS_ENABLED: ${SMS_ENABLED:-false}
+
+      JAVA_OPTS: "-Xms512m -Xmx1024m"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - notification-network
+    volumes:
+      - logs_data:/app/logs
+
+  # Servicios opcionales para WhatsApp y SMS (implementar según necesidad)
+  # whatsapp-gateway:
+  #   image: your-whatsapp-gateway:latest
+  #   container_name: whatsapp-gateway
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3001:3001"
+  #   networks:
+  #     - notification-network
+
+  # sms-gateway:
+  #   image: your-sms-gateway:latest
+  #   container_name: sms-gateway
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3002:3002"
+  #   networks:
+  #     - notification-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  logs_data:
+    driver: local
+
+networks:
+  notification-network:
+    driver: bridge

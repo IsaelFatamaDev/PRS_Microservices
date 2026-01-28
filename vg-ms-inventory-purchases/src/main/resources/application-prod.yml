@@ -1,0 +1,38 @@
+spring:
+  r2dbc:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    pool:
+      initial-size: 5
+      max-size: 20
+  
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_URI}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+microservices:
+  users:
+    base-url: ${MICROSERVICES_USERS_BASE_URL:https://genetic-yolane-vallegrandesistema-a92b57a3.koyeb.app}
+    timeout: ${MICROSERVICES_USERS_TIMEOUT:10000}
+    retry:
+      max-attempts: ${MICROSERVICES_USERS_RETRY_MAX_ATTEMPTS:3}
+      delay: ${MICROSERVICES_USERS_RETRY_DELAY:1000}

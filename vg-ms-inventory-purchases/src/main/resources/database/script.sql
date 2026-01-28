@@ -1,0 +1,213 @@
+-- -- Script de inicializacion de datos con codificacion UTF-8 correcta
+-- -- Configuracion de codificacion
+-- SET client_encoding = 'UTF8';
+-- SET standard_conforming_strings = on;
+-- SET timezone = 'America/Lima';
+
+--  SET client_encoding = 'UTF8';
+--  SET standard_conforming_strings = on;
+
+-- DROP TABLE IF EXISTS inventory_movements CASCADE;
+-- DROP TABLE IF EXISTS purchase_details CASCADE;
+-- DROP TABLE IF EXISTS purchases CASCADE;
+-- DROP TABLE IF EXISTS products CASCADE;
+-- DROP TABLE IF EXISTS suppliers CASCADE;
+-- DROP TABLE IF EXISTS product_categories CASCADE;
+
+
+--  CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+--  CREATE TABLE IF NOT EXISTS product_categories (
+--      category_id VARCHAR(100) PRIMARY KEY DEFAULT  uuid_generate_v4(),
+--      organization_id VARCHAR(50) NOT NULL,
+--      category_code VARCHAR(20) NOT NULL,
+--      category_name VARCHAR(100) NOT NULL,
+--      description TEXT,
+--      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (status IN ('ACTIVO', 'INACTIVO', 'ARCHIVADO')),
+--      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--      CONSTRAINT uk_category_code_org UNIQUE (organization_id, category_code),
+--      CONSTRAINT uk_category_name_org UNIQUE (organization_id, category_name)
+--  );
+
+--  CREATE TABLE IF NOT EXISTS products (
+--      product_id VARCHAR(100) PRIMARY KEY DEFAULT  uuid_generate_v4(),
+--      organization_id VARCHAR(50) NOT NULL,
+--      product_code VARCHAR(20) NOT NULL,
+--      product_name VARCHAR(200) NOT NULL,
+--      category_id VARCHAR(100) NOT NULL,
+--      unit_of_measure VARCHAR(20) NOT NULL CHECK (unit_of_measure IN ('UNIDAD', 'KG', 'LITRO', 'METRO', 'M2', 'M3', 'CAJA', 'PAR')),
+--      minimum_stock INTEGER DEFAULT 0 CHECK (minimum_stock >= 0),
+--      maximum_stock INTEGER CHECK (maximum_stock IS NULL OR maximum_stock >= minimum_stock),
+--      current_stock INTEGER DEFAULT 0 CHECK (current_stock >= 0),
+--      unit_cost DECIMAL(10,2) CHECK (unit_cost IS NULL OR unit_cost >= 0),
+--      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (status IN ('ACTIVO', 'INACTIVO', 'DESCONTINUADO')),
+--      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--      CONSTRAINT uk_product_code_org UNIQUE (organization_id, product_code),
+--      CONSTRAINT fk_product_category FOREIGN KEY (category_id) REFERENCES product_categories(category_id),
+--      CONSTRAINT chk_stock_ranges CHECK (
+--          (maximum_stock IS NULL) OR
+--          (minimum_stock <= maximum_stock)
+--      )
+--  );
+
+--  CREATE TABLE IF NOT EXISTS suppliers (
+--      supplier_id VARCHAR(100) PRIMARY KEY DEFAULT  uuid_generate_v4(),
+--      organization_id VARCHAR(50) NOT NULL,
+--      supplier_code VARCHAR(20) NOT NULL,
+--      supplier_name VARCHAR(200) NOT NULL,
+--      contact_person VARCHAR(100),
+--      phone VARCHAR(20),
+--      email VARCHAR(100) CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
+--      address TEXT,
+--      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (status IN ('ACTIVO', 'INACTIVO', 'BLOQUEADO')),
+--      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--      CONSTRAINT uk_supplier_code_org UNIQUE (organization_id, supplier_code),
+--      CONSTRAINT uk_supplier_name_org UNIQUE (organization_id, supplier_name)
+--  );
+
+--  CREATE TABLE IF NOT EXISTS purchases (
+--      purchase_id VARCHAR(100) PRIMARY KEY DEFAULT  uuid_generate_v4(),
+--      organization_id VARCHAR(50) NOT NULL,
+--      purchase_code VARCHAR(20) NOT NULL,
+--      supplier_id VARCHAR(100) NOT NULL,
+--      purchase_date DATE NOT NULL DEFAULT CURRENT_DATE,
+--      delivery_date DATE CHECK (delivery_date IS NULL OR delivery_date >= purchase_date),
+--      total_amount DECIMAL(12,2) NOT NULL CHECK (total_amount >= 0),
+--      status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE' CHECK (status IN ('PENDIENTE', 'APROBADO', 'RECHAZADO', 'PARCIAL', 'COMPLETADO', 'CANCELADO')),
+--      requested_by_user_id VARCHAR(50) NOT NULL,
+--      approved_by_user_id VARCHAR(50),
+--      invoice_number VARCHAR(50),
+--      observations TEXT,
+--      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--      CONSTRAINT uk_purchase_code_org UNIQUE (organization_id, purchase_code),
+--      CONSTRAINT fk_purchase_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
+--  );
+
+--  CREATE TABLE IF NOT EXISTS purchase_details (
+--      purchase_detail_id VARCHAR(100) PRIMARY KEY DEFAULT  uuid_generate_v4(),
+--      purchase_id VARCHAR(100) NOT NULL,
+--      product_id VARCHAR(100) NOT NULL,
+--      quantity_ordered INTEGER NOT NULL CHECK (quantity_ordered > 0),
+--      quantity_received INTEGER DEFAULT 0 CHECK (quantity_received >= 0),
+--      unit_cost DECIMAL(10,2) NOT NULL CHECK (unit_cost >= 0),
+--      subtotal DECIMAL(12,2) NOT NULL CHECK (subtotal >= 0),
+--      observations TEXT,
+--      CONSTRAINT fk_purchase_detail_purchase FOREIGN KEY (purchase_id) REFERENCES purchases(purchase_id) ON DELETE CASCADE,
+--      CONSTRAINT fk_purchase_detail_product FOREIGN KEY (product_id) REFERENCES products(product_id),
+--      CONSTRAINT chk_received_quantity CHECK (quantity_received <= quantity_ordered),
+--      CONSTRAINT chk_subtotal_calculation CHECK (subtotal = quantity_ordered * unit_cost)
+--  );
+
+--  CREATE TABLE IF NOT EXISTS inventory_movements (
+--      movement_id VARCHAR(100) PRIMARY KEY DEFAULT  uuid_generate_v4(),
+--      organization_id VARCHAR(50) NOT NULL,
+--      product_id VARCHAR(100) NOT NULL,
+--      movement_type VARCHAR(20) NOT NULL CHECK (movement_type IN ('ENTRADA', 'SALIDA', 'AJUSTE')),
+--      movement_reason VARCHAR(30) NOT NULL CHECK (movement_reason IN ('COMPRA', 'VENTA', 'USO_INTERNO', 'AJUSTE', 'MERMA', 'DONACION', 'TRANSFERENCIA')),
+--      quantity INTEGER NOT NULL CHECK (quantity > 0),
+--      unit_cost DECIMAL(10,2) CHECK (unit_cost IS NULL OR unit_cost >= 0),
+--      reference_document VARCHAR(50),
+--      reference_id VARCHAR(50),
+--      previous_stock INTEGER NOT NULL,
+--      new_stock INTEGER NOT NULL,
+--      movement_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--      user_id VARCHAR(50) NOT NULL,
+--      observations TEXT,
+--      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--      CONSTRAINT fk_movement_product FOREIGN KEY (product_id) REFERENCES products(product_id),
+--      CONSTRAINT chk_stock_consistency CHECK (
+--          (movement_type = 'ENTRADA' AND new_stock = previous_stock + quantity) OR
+--          (movement_type = 'SALIDA' AND new_stock = previous_stock - quantity) OR
+--          (movement_type = 'AJUSTE')
+--      )
+--  );
+
+
+
+-- -- Insertar categorias de productos
+--  INSERT INTO product_categories (category_id, organization_id, category_code, category_name, description, status, created_at)
+--  VALUES
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT001', 'Tuberia y Conexiones PVC', 'Tuberias de PVC, codos, tees, reducciones y accesorios para redes de agua potable', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT002', 'Equipos de Bombeo y Presion', 'Bombas centrifugas, electrobombas, tanques hidroneumaticos y accesorios', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT003', 'Valvulas y Control de Flujo', 'Valvulas de compuerta, globo, check, reductoras de presion y accesorios', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT004', 'Quimicos para Tratamiento', 'Cloro, sulfato de aluminio, cal, floculantes y desinfectantes', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT005', 'Medicion y Micromedicion', 'Medidores de agua, cajas de medidor, valvulas de paso y accesorios', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT006', 'Herramientas y Equipos', 'Herramientas para excavacion, reparacion e instalacion de redes', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT007', 'Materiales de Construccion', 'Cemento, arena, grava, ladrillo y materiales para obras civiles', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'CAT008', 'Equipos de Seguridad', 'Cascos, chalecos, botas, guantes y equipos de proteccion personal', 'ACTIVO', CURRENT_TIMESTAMP)
+--  ON CONFLICT (organization_id, category_code) DO NOTHING;
+
+-- -- Insertar proveedores
+--  INSERT INTO suppliers (supplier_id, organization_id, supplier_code, supplier_name, contact_person, phone, email, address, status, created_at)
+--  VALUES
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV001', 'Distribuidora Hidraulica del Centro SAC', 'Carlos Alberto Mendoza Rivera', '+51987654321', 'ventas@hidrocentro.pe', 'Av. Real 1425, Huancayo, Junin', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV002', 'Tubos y Sistemas Andinos EIRL', 'Maria Elena Rodriguez Quispe', '+51945123789', 'pedidos@tubosandinos.com', 'Jr. Huancavelica 567, Huancayo, Junin', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV003', 'Bombas y Equipos Industriales Junin', 'Roberto Silva Vargas', '+51912345678', 'contacto@bombasjunin.pe', 'Av. Ferrocarril 890, Huancayo, Junin', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV004', 'Quimica Andina para Tratamiento SAC', 'Ana Patricia Gonzalez Flores', '+51923456789', 'ventas@quimicaandina.pe', 'Calle Real 234, El Tambo, Huancayo', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV005', 'Medidores y Valvulas del Centro', 'Jose Luis Morales Huaman', '+51934567890', 'info@medidorescentro.com', 'Av. Giraldez 456, Huancayo, Junin', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV006', 'Ferreteria Saneamiento Rural Valle', 'Laura Beatriz Quispe Mamani', '+51956789012', 'ventas@ferreteriarural.pe', 'Jr. Ayacucho 789, Chilca, Huancayo', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV007', 'Constructora y Materiales Huanca', 'Pedro Antonio Vargas Sullca', '+51967890123', 'materiales@huancaconst.com', 'Av. Mantaro 321, Huancayo, Junin', 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROV008', 'Seguridad Industrial Andes', 'Carmen Rosa Huayllasco Torres', '+51978901234', 'seguridadandes@gmail.com', 'Jr. Puno 147, Huancayo, Junin', 'ACTIVO', CURRENT_TIMESTAMP)
+--  ON CONFLICT (organization_id, supplier_code) DO NOTHING;
+
+-- -- Insertar productos (todas las categorias en un solo INSERT)
+--  INSERT INTO products (product_id, organization_id, product_code, product_name, category_id, unit_of_measure, minimum_stock, maximum_stock, current_stock, unit_cost, status, created_at)
+--  VALUES
+--      -- Categoria CAT001: Tuberia y Conexiones PVC
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD001', 'Tuberia PVC SAP 4" x 6m Clase 10', (SELECT category_id FROM product_categories WHERE category_code = 'CAT001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 20, 200, 45, 92.50, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD002', 'Tuberia PVC SAP 2" x 6m Clase 10', (SELECT category_id FROM product_categories WHERE category_code = 'CAT001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 30, 300, 80, 48.75, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD003', 'Codo PVC SAP 4" x 90°', (SELECT category_id FROM product_categories WHERE category_code = 'CAT001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 50, 500, 120, 14.25, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD004', 'Tee PVC SAP 4"', (SELECT category_id FROM product_categories WHERE category_code = 'CAT001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 25, 150, 60, 18.90, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD005', 'Reduccion PVC SAP 4" a 2"', (SELECT category_id FROM product_categories WHERE category_code = 'CAT001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 15, 100, 35, 22.50, 'ACTIVO', CURRENT_TIMESTAMP),
+--      -- Categoria CAT002: Equipos de Bombeo y Presion
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD006', 'Electrobomba Centrifuga 2HP Monofasica', (SELECT category_id FROM product_categories WHERE category_code = 'CAT002' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 2, 10, 3, 950.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD007', 'Tanque Hidroneumatico 80L', (SELECT category_id FROM product_categories WHERE category_code = 'CAT002' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 1, 5, 2, 420.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD008', 'Presostato para Bomba', (SELECT category_id FROM product_categories WHERE category_code = 'CAT002' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 5, 25, 8, 85.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      -- Categoria CAT003: Valvulas y Control de Flujo
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD009', 'Valvula de Compuerta 4" Bronce', (SELECT category_id FROM product_categories WHERE category_code = 'CAT003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 10, 50, 15, 135.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD010', 'Valvula Check 2" Bronce', (SELECT category_id FROM product_categories WHERE category_code = 'CAT003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 8, 40, 12, 75.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD011', 'Valvula Reductora de Presion 2"', (SELECT category_id FROM product_categories WHERE category_code = 'CAT003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 3, 15, 5, 280.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      -- Categoria CAT004: Quimicos para Tratamiento
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD012', 'Cloro Granulado HTH 45kg', (SELECT category_id FROM product_categories WHERE category_code = 'CAT004' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'KG', 100, 1000, 275, 3.45, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD013', 'Sulfato de Aluminio 25kg', (SELECT category_id FROM product_categories WHERE category_code = 'CAT004' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'KG', 50, 500, 150, 2.80, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD014', 'Cal Hidratada 25kg', (SELECT category_id FROM product_categories WHERE category_code = 'CAT004' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'KG', 40, 400, 120, 1.95, 'ACTIVO', CURRENT_TIMESTAMP),
+--      -- Categoria CAT005: Medicion y Micromedicion
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD015', 'Medidor de Agua 1/2" Clase B', (SELECT category_id FROM product_categories WHERE category_code = 'CAT005' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 25, 100, 35, 68.50, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD016', 'Caja de Medidor de Concreto', (SELECT category_id FROM product_categories WHERE category_code = 'CAT005' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 20, 80, 25, 45.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD017', 'Llave de Paso 1/2" Bronce', (SELECT category_id FROM product_categories WHERE category_code = 'CAT005' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 40, 200, 75, 19.50, 'ACTIVO', CURRENT_TIMESTAMP),
+--      -- Categoria CAT006: Herramientas y Equipos
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD018', 'Pala Punta Acero Mango Madera', (SELECT category_id FROM product_categories WHERE category_code = 'CAT006' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 5, 20, 8, 38.50, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD019', 'Pico para Excavacion', (SELECT category_id FROM product_categories WHERE category_code = 'CAT006' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 5, 15, 6, 42.00, 'ACTIVO', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PROD020', 'Llave Stillson 12"', (SELECT category_id FROM product_categories WHERE category_code = 'CAT006' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'UNIDAD', 3, 10, 4, 125.00, 'ACTIVO', CURRENT_TIMESTAMP)
+--  ON CONFLICT (organization_id, product_code) DO NOTHING;
+
+-- -- Insertar compras
+--  INSERT INTO purchases (purchase_id, organization_id, purchase_code, supplier_id, purchase_date, delivery_date, total_amount, status, requested_by_user_id, approved_by_user_id, invoice_number, observations, created_at)
+--  VALUES
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PUR001', (SELECT supplier_id FROM suppliers WHERE supplier_code = 'PROV001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), '2024-12-10', '2024-12-15', 2775.00, 'COMPLETADO', '68c0a4ab07fa2d47448b530a', '68c0a4ab07fa2d47448b530a', 'FAC-HC-001-2024', 'Tuberia PVC para ampliacion red matriz zona alta', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PUR002', (SELECT supplier_id FROM suppliers WHERE supplier_code = 'PROV002' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), '2024-12-12', '2024-12-12', 1710.00, 'COMPLETADO', '68c0a4ab07fa2d47448b530a', '68c0a4ab07fa2d47448b530a', 'FAC-TSA-002-2024', 'Codos y conexiones para reparaciones de emergencia', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PUR003', (SELECT supplier_id FROM suppliers WHERE supplier_code = 'PROV003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), '2024-12-18', '2024-12-25', 950.00, 'APROBADO', '68c0a4ab07fa2d47448b530a', '68c0a4ab07fa2d47448b530a', 'COT-BIJ-003-2024', 'Electrobomba de respaldo para estacion de bombeo', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', 'PUR004', (SELECT supplier_id FROM suppliers WHERE supplier_code = 'PROV004' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), '2024-12-20', '2024-12-22', 948.75, 'COMPLETADO', '68c0a4ab07fa2d47448b530a', '68c0a4ab07fa2d47448b530a', 'FAC-QAT-004-2024', 'Quimicos para tratamiento trimestral', CURRENT_TIMESTAMP)
+--  ON CONFLICT (organization_id, purchase_code) DO NOTHING;
+
+-- -- Insertar detalles de compra (sin constraint onico definido, pero con ON CONFLICT usando primary key)
+--  INSERT INTO purchase_details (purchase_detail_id, purchase_id, product_id, quantity_ordered, quantity_received, unit_cost, subtotal, observations)
+--  VALUES
+--      (uuid_generate_v4(), (SELECT purchase_id FROM purchases WHERE purchase_code = 'PUR001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), (SELECT product_id FROM products WHERE product_code = 'PROD001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 30, 30, 92.50, 2775.00, 'Tuberia PVC 4" para red principal zona alta'),
+--      (uuid_generate_v4(), (SELECT purchase_id FROM purchases WHERE purchase_code = 'PUR002' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), (SELECT product_id FROM products WHERE product_code = 'PROD003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 120, 120, 14.25, 1710.00, 'Codos PVC 4" para reparaciones de red'),
+--      (uuid_generate_v4(), (SELECT purchase_id FROM purchases WHERE purchase_code = 'PUR003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), (SELECT product_id FROM products WHERE product_code = 'PROD006' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 1, 0, 950.00, 950.00, 'Electrobomba centrifuga pendiente de entrega'),
+--      (uuid_generate_v4(), (SELECT purchase_id FROM purchases WHERE purchase_code = 'PUR004' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), (SELECT product_id FROM products WHERE product_code = 'PROD012' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 275, 275, 3.45, 948.75, 'Cloro granulado para desinfeccion trimestral')
+--  ON CONFLICT (purchase_detail_id) DO NOTHING;
+
+-- -- Insertar movimientos de inventario (sin constraint onico definido, pero con ON CONFLICT usando primary key)
+--  INSERT INTO inventory_movements (movement_id, organization_id, product_id, movement_type, movement_reason, quantity, unit_cost, reference_document, reference_id, previous_stock, new_stock, movement_date, user_id, observations, created_at)
+--  VALUES
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', (SELECT product_id FROM products WHERE product_code = 'PROD001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'ENTRADA', 'COMPRA', 30, 92.50, 'PUR001', (SELECT purchase_id FROM purchases WHERE purchase_code = 'PUR001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 15, 45, '2024-12-15 09:30:00'::timestamp, '660e8400e29b41d4a716446655440001', 'Ingreso tuberia PVC 4" para ampliacion red matriz', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', (SELECT product_id FROM products WHERE product_code = 'PROD003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'ENTRADA', 'COMPRA', 120, 14.25, 'PUR002', (SELECT purchase_id FROM purchases WHERE purchase_code = 'PUR002' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 0, 120, '2024-12-12 14:15:00'::timestamp, '660e8400e29b41d4a716446655440003', 'Ingreso codos PVC 4" para reparaciones', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', (SELECT product_id FROM products WHERE product_code = 'PROD012' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'ENTRADA', 'COMPRA', 275, 3.45, 'PUR004', (SELECT purchase_id FROM purchases WHERE purchase_code = 'PUR004' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 0, 275, '2024-12-22 10:45:00'::timestamp, '660e8400e29b41d4a716446655440003', 'Ingreso cloro granulado para tratamiento', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', (SELECT product_id FROM products WHERE product_code = 'PROD001' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'SALIDA', 'USO_INTERNO', 5, 92.50, 'MANT-ZA-001', NULL, 45, 40, '2024-12-18 08:00:00'::timestamp, '660e8400e29b41d4a716446655440001', 'Uso en reparacion de red principal zona alta', CURRENT_TIMESTAMP),
+--      (uuid_generate_v4(), '6896b2ecf3e398570ffd99d3', (SELECT product_id FROM products WHERE product_code = 'PROD003' AND organization_id = '6896b2ecf3e398570ffd99d3' LIMIT 1), 'SALIDA', 'USO_INTERNO', 15, 14.25, 'MANT-CON-002', NULL, 120, 105, '2024-12-19 13:30:00'::timestamp, '660e8400e29b41d4a716446655440003', 'Reparacion conexiones domiciliarias sector 3', CURRENT_TIMESTAMP)
+--  ON CONFLICT (movement_id) DO NOTHING;
+
+-- SELECT * FROM PRODUCTS;

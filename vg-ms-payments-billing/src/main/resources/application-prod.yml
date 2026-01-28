@@ -1,0 +1,44 @@
+# =============================================================================
+# CONFIGURACIÓN DE PRODUCCIÓN - MICROSERVICIO DE PAGO
+# =============================================================================
+spring:
+  r2dbc:
+    url: ${SPRING_R2DBC_URL}
+    username: ${SPRING_R2DBC_USERNAME}
+    password: ${SPRING_R2DBC_PASSWORD}
+    pool:
+      initial-size: 2
+      max-size: 8
+      max-idle-time: 15m
+      max-acquire-time: 30s
+      max-create-connection-time: 30s
+      validation-query: SELECT 1
+
+# =============================================================================
+# CONFIGURACIÓN DEL SERVIDOR - PRODUCCIÓN
+# =============================================================================
+server:
+  port: ${SERVER_PORT:8083}
+
+# =============================================================================
+# CONFIGURACIÓN DE CLIENTES EXTERNOS - PRODUCCIÓN
+# =============================================================================
+microservices:
+  users:
+    name: ms-users
+    url: ${USERS_SERVICE_URL}
+    timeout: 5000
+
+  organization:
+    name: ms-organization
+    url: ${ORGANIZATION_SERVICE_URL}
+    timeout: 5000
+
+# =============================================================================
+# CONFIGURACIÓN DE LOGGING - PRODUCCIÓN
+# =============================================================================
+logging:
+  level:
+    pe.edu.vallegrande.vg_ms_payment: INFO
+    org.springframework.r2dbc: WARN
+    io.r2dbc.postgresql: WARN

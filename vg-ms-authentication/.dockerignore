@@ -1,0 +1,71 @@
+# =============================================================================
+# .dockerignore para MS-AUTHENTICATION
+# Excluye archivos innecesarios del contexto de Docker
+# =============================================================================
+
+# Directorios de compilación y dependencias
+target/
+!target/dependency/
+
+# Archivos IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+
+# Archivos de Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentación y archivos de desarrollo
+README.md
+*.md
+docs/
+.editorconfig
+
+# Archivos de prueba y desarrollo local
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs y archivos temporales
+logs/
+*.log
+nohup.out
+
+# Archivos de Spring Boot DevTools
+.spring-boot-devtools.properties
+
+# Archivos de backup
+*.bak
+*.backup
+*~
+
+# Archivos específicos del proyecto
+HELP.md
+
+# Cache de Node.js (si se usa)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos de Docker
+Dockerfile.dev
+docker-compose.yml
+docker-compose.override.yml
+.dockerignore

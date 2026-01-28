@@ -1,0 +1,92 @@
+spring:
+     r2dbc:
+          url: r2dbc:postgresql://${DB_HOST:postgres-users}:${DB_PORT:5432}/${DB_NAME:vg_users}
+          username: ${DB_USER:postgres}
+          password: ${DB_PASSWORD:postgres}
+          pool:
+               initial-size: 20
+               max-size: 50
+               max-idle-time: 30m
+
+     flyway:
+          enabled: true
+          url: jdbc:postgresql://${DB_HOST:postgres-users}:${DB_PORT:5432}/${DB_NAME:vg_users}
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD:postgres}
+          baseline-on-migrate: true
+
+     rabbitmq:
+          host: ${RABBITMQ_HOST:genetic-yolane-vallegrandesistema-a92b57a3.koyeb.app}
+          port: ${RABBITMQ_PORT:443}
+          username: ${RABBITMQ_USER:admin}
+          password: ${RABBITMQ_PASSWORD:admin}
+          virtual-host: /
+          ssl:
+               enabled: true
+
+rabbitmq:
+     exchange:
+          users: users.exchange
+     queue:
+          user-created: users.created.queue
+          user-updated: users.updated.queue
+          user-deleted: users.deleted.queue
+     routing-key:
+          user-created: users.created
+          user-updated: users.updated
+          user-deleted: users.deleted
+
+services:
+     authentication:
+          url: http://vg-ms-authentication:8082
+     organizations:
+          url: http://vg-ms-organizations:8083
+     notification:
+          url: http://vg-ms-notification:8084
+
+resilience4j:
+     circuitbreaker:
+          instances:
+               authenticationService:
+                    register-health-indicator: true
+                    sliding-window-size: 20
+                    minimum-number-of-calls: 10
+                    permitted-number-of-calls-in-half-open-state: 5
+                    automatic-transition-from-open-to-half-open-enabled: true
+                    wait-duration-in-open-state: 60s
+                    failure-rate-threshold: 60
+                    event-consumer-buffer-size: 10
+               organizationService:
+                    register-health-indicator: true
+                    sliding-window-size: 20
+                    minimum-number-of-calls: 10
+                    permitted-number-of-calls-in-half-open-state: 5
+                    automatic-transition-from-open-to-half-open-enabled: true
+                    wait-duration-in-open-state: 60s
+                    failure-rate-threshold: 60
+                    event-consumer-buffer-size: 10
+               notificationService:
+                    register-health-indicator: true
+                    sliding-window-size: 20
+                    minimum-number-of-calls: 10
+                    permitted-number-of-calls-in-half-open-state: 5
+                    automatic-transition-from-open-to-half-open-enabled: true
+                    wait-duration-in-open-state: 60s
+                    failure-rate-threshold: 60
+                    event-consumer-buffer-size: 10
+     retry:
+          instances:
+               authenticationService:
+                    max-attempts: 5
+                    wait-duration: 2s
+               organizationService:
+                    max-attempts: 5
+                    wait-duration: 2s
+               notificationService:
+                    max-attempts: 5
+                    wait-duration: 2s
+
+logging:
+     level:
+          root: WARN
+          pe.edu.vallegrande.vgmsusers: INFO
