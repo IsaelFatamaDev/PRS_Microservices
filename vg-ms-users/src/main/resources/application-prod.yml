@@ -1,92 +1,179 @@
+# =============================================================================
+# PERFIL DE PRODUCCIÓN - OPTIMIZADO PARA 250 MiB
+# =============================================================================
+
 spring:
-     r2dbc:
-          url: r2dbc:postgresql://${DB_HOST:postgres-users}:${DB_PORT:5432}/${DB_NAME:vg_users}
-          username: ${DB_USER:postgres}
-          password: ${DB_PASSWORD:postgres}
+     # Inicialización lazy para reducir memoria
+     main:
+          lazy-initialization: true
+          banner-mode: off
+
+     security:
+          oauth2:
+               resourceserver:
+                    jwt:
+                         issuer-uri: ${KEYCLOAK_ISSUER_URI:https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass}
+                         jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass/protocol/openid-connect/certs}
+
+     # MongoDB con pool reducido
+     data:
+          mongodb:
+               uri: ${SPRING_DATA_MONGODB_URL:mongodb+srv://sistemajass:ZC7O1Ok40SwkfEje@sistemajass.jn6cpoz.mongodb.net/JASS_DIGITAL?retryWrites=true&w=majority&maxPoolSize=10&minPoolSize=2&maxIdleTimeMS=30000&serverSelectionTimeoutMS=3000&heartbeatFrequencyMS=30000}
+               database: ${SPRING_DATA_MONGODB_DATABASE:JASS_DIGITAL}
+               auto-index-creation: false
+               connection-timeout: 3000
+               socket-timeout: 5000
+               options:
+                    max-pool-size: 5
+                    min-pool-size: 1
+                    max-idle-time: 30000
+                    max-connection-life-time: 60000
+                    heartbeat-frequency: 30000
+                    server-selection-timeout: 2000
+
+     # Cache deshabilitado
+     web:
+          resources:
+               cache:
+                    enabled: false
+               add-mappings: false
+
+     # Task execution reducido
+     task:
+          execution:
+               pool:
+                    core-size: 2
+                    max-size: 3
+                    queue-capacity: 50
+
+     # JMX deshabilitado
+     jmx:
+          enabled: false
+
+# =============================================================================
+# REACTOR NETTY OPTIMIZADO
+# =============================================================================
+reactor:
+     netty:
+          # Solo 2 workers para reducir threads
+          ioWorkerCount: 2
           pool:
-               initial-size: 20
-               max-size: 50
-               max-idle-time: 30m
+               # Pool de conexiones reducido
+               maxConnections: 50
+               acquireTimeout: 3000
+               maxIdleTime: 10000
 
-     flyway:
+# =============================================================================
+# SERVIDOR CON LÍMITES AJUSTADOS
+# =============================================================================
+server:
+     port: ${SERVER_PORT:8085}
+     forward-headers-strategy: native
+
+     # Compresión habilitada
+     compression:
           enabled: true
-          url: jdbc:postgresql://${DB_HOST:postgres-users}:${DB_PORT:5432}/${DB_NAME:vg_users}
-          user: ${DB_USER:postgres}
-          password: ${DB_PASSWORD:postgres}
-          baseline-on-migrate: true
+          mime-types: text/html,text/xml,text/plain,text/css,application/json
+          min-response-size: 1024
 
-     rabbitmq:
-          host: ${RABBITMQ_HOST:genetic-yolane-vallegrandesistema-a92b57a3.koyeb.app}
-          port: ${RABBITMQ_PORT:443}
-          username: ${RABBITMQ_USER:admin}
-          password: ${RABBITMQ_PASSWORD:admin}
-          virtual-host: /
-          ssl:
-               enabled: true
+     # Shutdown graceful
+     shutdown: graceful
 
-rabbitmq:
-     exchange:
-          users: users.exchange
-     queue:
-          user-created: users.created.queue
-          user-updated: users.updated.queue
-          user-deleted: users.deleted.queue
-     routing-key:
-          user-created: users.created
-          user-updated: users.updated
-          user-deleted: users.deleted
+     # Límites de request
+     max-http-request-header-size: 8KB
 
-services:
-     authentication:
-          url: http://vg-ms-authentication:8082
-     organizations:
-          url: http://vg-ms-organizations:8083
-     notification:
-          url: http://vg-ms-notification:8084
+# =============================================================================
+# SERVICIOS EXTERNOS CON TIMEOUTS CORTOS
+# =============================================================================
+external:
+     ms-organizations:
+          name: Microservicio de Organizaciones
+          url: ${EXTERNAL_MS_ORGANIZATIONS_URL:https://lab.vallegrande.edu.pe/jass/ms-organization}
+          timeout: 3000
+          max-connections: 10
 
-resilience4j:
-     circuitbreaker:
-          instances:
-               authenticationService:
-                    register-health-indicator: true
-                    sliding-window-size: 20
-                    minimum-number-of-calls: 10
-                    permitted-number-of-calls-in-half-open-state: 5
-                    automatic-transition-from-open-to-half-open-enabled: true
-                    wait-duration-in-open-state: 60s
-                    failure-rate-threshold: 60
-                    event-consumer-buffer-size: 10
-               organizationService:
-                    register-health-indicator: true
-                    sliding-window-size: 20
-                    minimum-number-of-calls: 10
-                    permitted-number-of-calls-in-half-open-state: 5
-                    automatic-transition-from-open-to-half-open-enabled: true
-                    wait-duration-in-open-state: 60s
-                    failure-rate-threshold: 60
-                    event-consumer-buffer-size: 10
-               notificationService:
-                    register-health-indicator: true
-                    sliding-window-size: 20
-                    minimum-number-of-calls: 10
-                    permitted-number-of-calls-in-half-open-state: 5
-                    automatic-transition-from-open-to-half-open-enabled: true
-                    wait-duration-in-open-state: 60s
-                    failure-rate-threshold: 60
-                    event-consumer-buffer-size: 10
-     retry:
-          instances:
-               authenticationService:
-                    max-attempts: 5
-                    wait-duration: 2s
-               organizationService:
-                    max-attempts: 5
-                    wait-duration: 2s
-               notificationService:
-                    max-attempts: 5
-                    wait-duration: 2s
+     ms-infrastructure:
+          name: Microservicio de Infraestructura
+          url: ${EXTERNAL_MS_INFRASTRUCTURE_URL:https://rolling-xaviera-infrastructure-ms-f69d285a.koyeb.app}
+          timeout: 3000
+          max-connections: 10
 
+     diacolecta_reniec:
+          name: Diacolecta Reniec
+          url: ${EXTERNAL_DIACOLECTA_RENIEC_URL:https://api.decolecta.com/v1/reniec/dni}
+          token: ${EXTERNAL_DIACOLECTA_RENIEC_TOKEN:sk_11799.6WC0bvn93IbhBjNPDIwH239oX30cayLr}
+          timeout: 3000
+          max-connections: 5
+
+     ms-authentication:
+          name: Microservicio de Autenticación
+          url: ${EXTERNAL_MS_AUTHENTICATION_URL:https://lab.vallegrande.edu.pe/jass/ms-authentication}
+          timeout: 3000
+          retryAttempts: 2
+          max-connections: 10
+
+     ms-notifications:
+          name: Microservicio de Notificaciones
+          url: ${EXTERNAL_MS_NOTIFICATIONS_URL:http://34.192.209.199:3000/api}
+          timeout: 5000
+          max-connections: 10
+
+# =============================================================================
+# ACTUATOR MÍNIMO
+# =============================================================================
+management:
+     endpoints:
+          web:
+               exposure:
+                    include: health
+               base-path: /actuator
+
+     endpoint:
+          health:
+               show-details: never
+               cache:
+                    time-to-live: 30s
+
+     health:
+          defaults:
+               enabled: false
+          mongo:
+               enabled: false
+          diskspace:
+               enabled: false
+
+     metrics:
+          enable:
+               jvm: false
+               process: false
+               system: false
+               http: false
+
+     server:
+          port: -1
+
+# =============================================================================
+# LOGGING MÍNIMO
+# =============================================================================
 logging:
      level:
           root: WARN
-          pe.edu.vallegrande.vgmsusers: INFO
+          pe.edu.vallegrande: INFO
+          org.springframework: WARN
+          org.springframework.data.mongodb: WARN
+          org.springframework.security: WARN
+          org.springframework.web.server.adapter.HttpWebHandlerAdapter: ERROR
+          reactor.netty: WARN
+          org.mongodb: WARN
+
+     pattern:
+          console: "%msg%n"
+
+# =============================================================================
+# DOCUMENTACIÓN DESHABILITADA EN PROD
+# =============================================================================
+springdoc:
+     api-docs:
+          enabled: false
+     swagger-ui:
+          enabled: false

@@ -1,88 +1,50 @@
 spring:
-     r2dbc:
-          url: r2dbc:postgresql://localhost:5432/sistemajass
-          username: sistemajass_user
-          password: 123456
-          pool:
-               enabled: true
-               initial-size: 10
-               max-size: 20
-               max-idle-time: 30m
-               validation-query: SELECT 1
+     main:
+          lazy-initialization: true
 
-     flyway:
-          url: jdbc:postgresql://localhost:5432/sistemajass
-          user: sistemajass_user
-          password: 123456
-          enabled: true
+     jpa:
+          show-sql: false
 
-rabbitmq:
-     exchange:
-          users: users.exchange
-     queue:
-          user-created: users.created.queue
-          user-updated: users.updated.queue
-          user-deleted: users.deleted.queue
-     routing-key:
-          user-created: users.created
-          user-updated: users.updated
-          user-deleted: users.deleted
+     data:
+          mongodb:
+               options:
+                    heartbeat-frequency: 30000
+                    server-selection-timeout: 2000
 
-services:
-     authentication:
-          url: http://localhost:8082
-     organizations:
-          url: http://localhost:8083
-     notification:
-          url: http://localhost:8084
+     reactor:
+          netty:
+               pool:
+                    max-connections: 20
+                    acquire-timeout: 2000
+                    max-idle-time: 3s
 
-resilience4j:
-     circuitbreaker:
-          instances:
-               authenticationService:
-                    register-health-indicator: true
-                    sliding-window-size: 10
-                    minimum-number-of-calls: 5
-                    permitted-number-of-calls-in-half-open-state: 3
-                    automatic-transition-from-open-to-half-open-enabled: true
-                    wait-duration-in-open-state: 30s
-                    failure-rate-threshold: 50
-                    event-consumer-buffer-size: 10
-               organizationService:
-                    register-health-indicator: true
-                    sliding-window-size: 10
-                    minimum-number-of-calls: 5
-                    permitted-number-of-calls-in-half-open-state: 3
-                    automatic-transition-from-open-to-half-open-enabled: true
-                    wait-duration-in-open-state: 30s
-                    failure-rate-threshold: 50
-                    event-consumer-buffer-size: 10
-               notificationService:
-                    register-health-indicator: true
-                    sliding-window-size: 10
-                    minimum-number-of-calls: 5
-                    permitted-number-of-calls-in-half-open-state: 3
-                    automatic-transition-from-open-to-half-open-enabled: true
-                    wait-duration-in-open-state: 30s
-                    failure-rate-threshold: 50
-                    event-consumer-buffer-size: 10
-     retry:
-          instances:
-               authenticationService:
-                    max-attempts: 3
-                    wait-duration: 1s
-               organizationService:
-                    max-attempts: 3
-                    wait-duration: 1s
-               notificationService:
-                    max-attempts: 3
-                    wait-duration: 1s
+server:
+     undertow:
+          io-threads: 2
+          worker-threads: 8
+          buffer-size: 512
+
+management:
+     endpoints:
+          web:
+               expose:
+                    include: health
+     endpoint:
+          health:
+               cache:
+                    time-to-live: 30s
+     metrics:
+          enabled: false
+     server:
+          port: -1
 
 logging:
-  level:
-    root: INFO
-    pe.edu.vallegrande.vgmsusers: DEBUG
-    org.springframework.r2dbc: DEBUG
-    io.r2dbc.postgresql.query: DEBUG
-    org.springframework.amqp: DEBUG
-    org.flywaydb: DEBUG
+     level:
+          root: ERROR
+          "pe.edu.vallegrande": INFO
+          "org.springframework": ERROR
+          "org.springframework.web.server.adapter.HttpWebHandlerAdapter": ERROR
+          "org.mongodb": ERROR
+          "reactor": ERROR
+     pattern:
+          console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n"

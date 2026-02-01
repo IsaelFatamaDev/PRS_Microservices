@@ -1,23 +1,101 @@
+server:
+  port: ${SERVER_PORT:8081}
+  netty:
+    connection-timeout: 10s
+  http2:
+    enabled: false
+  compression:
+    enabled: true
+    min-response-size: 1024
+
 spring:
-     data:
-          mongodb:
-               uri: ${MONGODB_URI:mongodb://mongo:27017/JASS_DIGITAL}
-               auto-index-creation: true
+  application:
+    name: vg-ms-organizations
+  # Configuración de seguridad OAuth2/JWT
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass}
+          jwk-set-uri: ${JWT_JWK_SET_URI:https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass/protocol/openid-connect/certs}
+  
+  # Configuración de base de datos MongoDB para producción
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+  
+  main:
+    lazy-initialization: true
+  
+  jmx:
+    enabled: false
+  
+  output:
+    ansi:
+      enabled: never
+  
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
+  
+  codec:
+    max-in-memory-size: 256KB
 
-     rabbitmq:
-          host: ${RABBITMQ_HOST:wasp.rmq.cloudamqp.com}
-          port: ${RABBITMQ_PORT:5672}
-          username: ${RABBITMQ_USERNAME}
-          password: ${RABBITMQ_PASSWORD}
-          virtual-host: ${RABBITMQ_VHOST:/}
-          ssl:
-               enabled: ${RABBITMQ_SSL_ENABLED:true}
+# Configuración de Cloudinary (producción)
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
 
-services:
-     vg-ms-users:
-          url: ${USER_SERVICE_URL:http://vg-ms-users:8081}
+# Configuración de microservicios (producción)
+microservices:
+  users:
+    name: ms-users
+    base-url: ${MS_USERS_URL:https://genetic-yolane-vallegrandesistema-a92b57a3.koyeb.app}
+    endpoints:
+      create-admin: /internal/organizations/{organizationId}/create-admin
+      validate: /internal/users/validate
+    timeout: 30
 
+# Configuración de logging (producción - mínimo)
 logging:
-     level:
-          pe.edu.vallegrande: INFO
-          root: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: ERROR
+    pe.edu.vallegrande: INFO
+    org.springframework.boot: WARN
+    org.springframework.boot.web.embedded.netty: WARN
+    org.springframework.data.mongodb: WARN
+    org.mongodb.driver: WARN
+    reactor.netty: WARN
+    io.netty: WARN
+    com.mongodb: WARN
+  file:
+    path: ./logs
+    name: vg-ms-organizations.log
+
+# Configuración de monitoreo (producción - restringido)
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      enabled: true
+      show-details: always
+      show-components: always
+  health:
+    defaults:
+      enabled: false
+    ping:
+      enabled: true
+    mongo:
+      enabled: true

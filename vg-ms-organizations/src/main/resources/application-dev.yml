@@ -1,21 +1,83 @@
+server:
+  port: 8081
+
 spring:
-     data:
-          mongodb:
-               uri: mongodb://localhost:27017/JASS_DIGITAL
-               auto-index-creation: true
+  application:
+    name: vg-ms-organizations
+  
+  # Configuración de base de datos MongoDB para desarrollo
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/ms_organizations_dev}
+  
+  # Lazy initialization deshabilitado en desarrollo para detectar errores temprano
+  main:
+    lazy-initialization: false
+  
+  jmx:
+    enabled: true
+  
+  output:
+    ansi:
+      enabled: always
+  
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: true  # Pretty print en desarrollo
+    deserialization:
+      fail-on-unknown-properties: false
 
-     rabbitmq:
-          host: localhost
-          port: 5672
-          username: guest
-          password: guest
+# Configuración de Cloudinary (desarrollo)
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:demo}
+  api-key: ${CLOUDINARY_API_KEY:demo}
+  api-secret: ${CLOUDINARY_API_SECRET:demo}
 
-services:
-     vg-ms-users:
-          url: http://localhost:8081
+# Configuración de microservicios (desarrollo)
+microservices:
+  users:
+    name: ms-users
+    base-url: ${MS_USERS_URL:http://localhost:8085}
+    endpoints:
+      create-admin: /internal/organizations/{organizationId}/create-admin
+      validate: /internal/users/validate
+    timeout: 30
 
+# Configuración de logging (desarrollo - más verbose)
 logging:
-     level:
-          pe.edu.vallegrande: DEBUG
-          org.springframework.data.mongodb: DEBUG
-          org.springframework.amqp: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n"
+  level:
+    root: INFO
+    pe.edu.vallegrande: DEBUG
+    org.springframework.boot: INFO
+    org.springframework.web: DEBUG
+    org.springframework.data.mongodb: DEBUG
+    org.mongodb.driver: INFO
+    reactor.netty: DEBUG
+    io.netty: INFO
+  file:
+    path: ./logs
+    name: vg-ms-organizations-dev.log
+
+# Configuración de monitoreo (desarrollo)
+management:
+  endpoints:
+    enabled-by-default: true
+    web:
+      exposure:
+        include: "*"  # Exponer todos los endpoints en desarrollo
+      base-path: /actuator
+  endpoint:
+    health:
+      enabled: true
+      show-details: always
+      show-components: always
+  health:
+    defaults:
+      enabled: true
+    ping:
+      enabled: true
+    mongo:
+      enabled: true

@@ -1,13 +1,16 @@
 package pe.edu.vallegrande.vgmsorganizations;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.mongodb.repository.config.EnableReactiveMongoRepositories;
+import org.springframework.scheduling.annotation.EnableAsync;
 
+@Slf4j
 @SpringBootApplication
-@EnableReactiveMongoRepositories(basePackages = "pe.edu.vallegrande.vgmsorganizations.infrastructure.persistence.repositories")
+@EnableAsync
 public class VgMsOrganizationsApplication {
-     public static void main(String[] args) {
-          SpringApplication.run(VgMsOrganizationsApplication.class, args);
-     }
+
+    public static void main(String[] args) {
+        SpringApplication.run(VgMsOrganizationsApplication.class, args);
+    }
 }

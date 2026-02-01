@@ -1,0 +1,69 @@
+PostgreSQL (R2DBC):
+docker run -d \
+  --name postgres_jass \
+  -e POSTGRES_DB=sistemajass \
+  -e POSTGRES_USER=sistemajass_user \
+  -e POSTGRES_PASSWORD=SISTEMAJASS \
+  -p 5432:5432 \
+  -v jass_postgre_data:/var/lib/postgresql/data \
+  postgres:15-alpine
+
+MongoDB:
+docker run -d \
+  --name mongo_jass \
+  -p 27017:27017 \
+  -v jass_mongo_data:/data/db \
+  mongo:latest
+
+RabbitMQ (con Panel de Control):
+docker run -d \
+  --name rabbit_jass \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  -e RABBITMQ_DEFAULT_USER=guest \
+  -e RABBITMQ_DEFAULT_PASS=guest \
+  rabbitmq:3-management
+
+compose:
+version: '3.8'
+
+services:
+  # Base de Datos Relacional - PostgreSQL
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: postgres_jass
+    environment:
+      - POSTGRES_DB=sistemajass
+      - POSTGRES_USER=sistemajass_user
+      - POSTGRES_PASSWORD=SISTEMAJASS
+    ports:
+      - "5432:5432"
+    volumes:
+      - jass_postgre_data:/var/lib/postgresql/data
+
+  # Base de Datos NoSQL - MongoDB
+  mongo-db:
+    image: mongo:latest
+    container_name: mongo_jass
+    ports:
+      - "27017:27017"
+    volumes:
+      - jass_mongo_data:/data/db
+
+  # Mensajería - RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbit_jass
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"   # Puerto de comunicación
+      - "15672:15672" # Puerto de interfaz web (Management)
+    volumes:
+      - jass_rabbit_data:/var/lib/rabbitmq
+
+volumes:
+  jass_postgre_data:
+  jass_mongo_data:
+  jass_rabbit_data:

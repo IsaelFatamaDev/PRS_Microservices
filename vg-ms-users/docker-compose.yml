@@ -1,52 +1,34 @@
 version: '3.8'
 
 services:
-  postgres-users:
-    image: postgres:16-alpine
-    container_name: postgres-users
-    environment:
-      POSTGRES_DB: vg_users
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-users-data:/var/lib/postgresql/data
-    networks:
-      - jass-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   vg-ms-users:
     build: .
     container_name: vg-ms-users
-    environment:
-      SPRING_PROFILE: prod
-      PORT: 8081
-      DB_HOST: postgres-users
-      DB_PORT: 5432
-      DB_NAME: vg_users
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      RABBITMQ_HOST: genetic-yolane-vallegrandesistema-a92b57a3.koyeb.app
-      RABBITMQ_PORT: 443
-      RABBITMQ_USER: admin
-      RABBITMQ_PASSWORD: admin
     ports:
-      - "8081:8081"
+      - "8085:8085"
+    environment:
+      - SERVER_PORT=8085
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/JASS_DIGITAL
+      - KEYCLOAK_ISSUER_URI=https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass
+      - KEYCLOAK_JWK_SET_URI=https://lab.vallegrande.edu.pe/jass/keycloak/realms/sistema-jass/protocol/openid-connect/certs
     depends_on:
-      postgres-users:
-        condition: service_healthy
+      - mongo
     networks:
       - jass-network
-    restart: unless-stopped
 
-volumes:
-  postgres-users-data:
+  mongo:
+    image: mongo:latest
+    container_name: mongo-users
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data_users:/data/db
+    networks:
+      - jass-network
 
 networks:
   jass-network:
     driver: bridge
+
+volumes:
+  mongo_data_users:
