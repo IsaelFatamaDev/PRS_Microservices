@@ -2,44 +2,7 @@
 
 Este documento contiene la **ESTRUCTURA COMPLETA Y DEFINITIVA** de TODOS los microservicios del proyecto JASS Digital, con cada archivo, cada clase, cada configuración definida.
 
-> **📌 NOTA IMPORTANTE**: Todos los microservicios deben incluir el paquete `shared` con estándares comunes. Ver: [ESTANDARES_ARQUITECTURA.md](./ESTANDARES_ARQUITECTURA.md)
-
----
-
-## 0. 📦 SHARED PACKAGE (Común a TODOS los servicios)
-
-```text
-src/main/java/pe/edu/vallegrande/shared/
-├── domain/
-│   ├── BaseEntity.java                                → [ABSTRACT CLASS] Campos de auditoría
-│   └── valueobjects/
-│       └── RecordStatus.java                          → [ENUM] ACTIVE, INACTIVE
-├── dto/
-│   ├── ApiResponse.java                               → [CLASS] <T> Respuesta estándar
-│   └── ErrorMessage.java                              → [CLASS] Error estándar
-└── exceptions/
-    ├── BusinessRuleException.java                     → [CLASS] Excepciones de negocio
-    └── NotFoundException.java                         → [CLASS] Recursos no encontrados
-```
-
-**Implementación BaseEntity**:
-```java
-public abstract class BaseEntity {
-    protected String id;                    // UUID
-    protected String organizationId;        // Multi-tenancy (OBLIGATORIO)
-    protected RecordStatus recordStatus;    // ACTIVE/INACTIVE (OBLIGATORIO)
-    protected LocalDateTime createdAt;      
-    protected String createdBy;             // userId
-    protected LocalDateTime updatedAt;      
-    protected String updatedBy;             // userId
-}
-```
-
-**TODOS** los modelos de dominio (`User`, `Payment`, `WaterBox`, etc.) deben:
-- ✅ Extender `BaseEntity` o implementar sus campos
-- ✅ Usar `organizationId` para multi-tenancy
-- ✅ Usar `recordStatus` para soft deletes (ACTIVE/INACTIVE)
-- ✅ Registrar auditoría (createdAt, createdBy, updatedAt, updatedBy)
+> **📌 NOTA IMPORTANTE**: Cada microservicio es INDEPENDIENTE y tiene sus propias clases base (no hay paquete compartido entre servicios).
 
 ---
 
@@ -85,7 +48,6 @@ vg-ms-users/
 │   │   │   │   ├── common/
 │   │   │   │   │   ├── ApiResponse.java                → [CLASS] ✅ ESTÁNDAR (Wrapper)
 │   │   │   │   │   ├── PageResponse.java               → [CLASS] ✅ ESTÁNDAR (Paginación)
-│   │   │   │   │   ├── PageResponse.java               → [CLASS] ✅ ESTÁNDAR (Paginación)
 │   │   │   │   │   └── ErrorMessage.java               → [CLASS] ✅ ESTÁNDAR (Errores)
 │   │   │   │   ├── request/
 │   │   │   │   │   ├── CreateUserRequest.java          → [CLASS] @Valid
@@ -103,7 +65,8 @@ vg-ms-users/
 │   │       ├── adapters/
 │   │       │   ├── in/
 │   │       │   │   └── rest/
-│   │       │   │       └── UserRest.java         → [CLASS] @RestController
+│   │       │   │       ├── UserRest.java         → [CLASS] @RestController
+│   │       │   │       └── GlobalExceptionHandler.java     → [CLASS] @RestControllerAdvice
 │   │       │   └── out/
 │   │       │       ├── persistence/
 │   │       │       │   └── UserRepositoryImpl.java     → [CLASS] @Repository
@@ -170,8 +133,9 @@ vg-ms-authentication/
 │   │   │   │   └── RefreshTokenUseCaseImpl.java        → [CLASS] @Service
 │   │   │   ├── dto/
 │   │   │   │   ├── common/
-│   │   │   │   │   ├── ApiResponse.java                → [CLASS]
-│   │   │   │   │   └── ErrorMessage.java               → [CLASS]
+│   │   │   │   │   ├── ApiResponse.java                → [CLASS] ✅ ESTÁNDAR (Wrapper)
+│   │   │   │   │   ├── PageResponse.java               → [CLASS] ✅ ESTÁNDAR (Paginación)
+│   │   │   │   │   └── ErrorMessage.java               → [CLASS] ✅ ESTÁNDAR (Errores)
 │   │   │   │   ├── request/
 │   │   │   │   │   ├── LoginRequest.java               → [CLASS] { username, password }
 │   │   │   │   │   ├── RegisterUserRequest.java        → [CLASS]
@@ -185,11 +149,15 @@ vg-ms-authentication/
 │   │       ├── adapters/
 │   │       │   ├── in/
 │   │       │   │   └── rest/
-│   │       │   │       └── AuthRest.java         → [CLASS] @RestController
+│   │       │   │       ├── AuthRest.java         → [CLASS] @RestController
+│   │       │   │       └── GlobalExceptionHandler.java     → [CLASS] @RestControllerAdvice
 │   │       │   └── out/
 │   │       │       └── external/
 │   │       │           ├── KeycloakClientImpl.java     → [CLASS] @Component (Admin API)
 │   │       │           └── UserServiceClientImpl.java  → [CLASS] @Component
+│   │       ├── messaging/
+│   │       │   └── listeners/
+│   │       │       └── UserEventListener.java          → [CLASS] @Component @RabbitListener (user.created)
 │   │       └── config/
 │   │           ├── KeycloakConfig.java                 → [CLASS] Keycloak Admin Client
 │   │           ├── WebClientConfig.java                → [CLASS]
@@ -252,6 +220,7 @@ vg-ms-organizations/
 │   │   │   ├── dto/
 │   │   │   │   ├── common/
 │   │   │   │   │   ├── ApiResponse.java                → [CLASS]
+│   │   │   │   │   ├── PageResponse.java               → [CLASS] ✅ ESTÁNDAR (Paginación)
 │   │   │   │   │   └── ErrorMessage.java               → [CLASS]
 │   │   │   │   ├── request/
 │   │   │   │   │   ├── CreateOrganizationRequest.java  → [CLASS]
@@ -276,7 +245,8 @@ vg-ms-organizations/
 │   │       │   │   └── rest/
 │   │       │   │       ├── OrganizationRest.java → [CLASS] @RestController
 │   │       │   │       ├── ZoneRest.java         → [CLASS] @RestController
-│   │       │   │       └── StreetRest.java       → [CLASS] @RestController
+│   │       │   │       ├── StreetRest.java       → [CLASS] @RestController
+│   │       │   │       └── GlobalExceptionHandler.java     → [CLASS] @RestControllerAdvice
 │   │       │   └── out/
 │   │       │       └── persistence/
 │   │       │           └── OrganizationRepositoryImpl.java → [CLASS] @Repository
