@@ -1,8 +1,12 @@
 # 03 - CONFIGURACIONES APPLICATION.YML COMPLETAS
 
-Este documento contiene **TODAS** las configuraciones para los 11 microservicios con sus dependencias completas.
+Este documento contiene **TODAS** las configuraciones para los 11 microservicios.
 
-> **📌 VERSIÓN MEJORADA**: Incluye Security JWT, Resilience4j completo, CORS, Graceful Shutdown, Health Checks avanzados.
+> **📌 VERSIÓN CORREGIDA**:
+>
+> - CORS solo en Gateway (NO en microservicios)
+> - RabbitMQ exchanges/queues van en `RabbitMQConfig.java` (NO en YAML)
+> - Sin propiedades inventadas
 
 ---
 
@@ -24,24 +28,62 @@ Este documento contiene **TODAS** las configuraciones para los 11 microservicios
 
 ---
 
-## 🔧 CONFIGURACIÓN BASE COMPARTIDA
+## ⚠️ REGLAS IMPORTANTES
 
-> Estas configuraciones se repiten en todos los microservicios Java.
+### 1️⃣ CORS - SOLO EN GATEWAY
 
-### Estructura de archivos por servicio
+```
+❌ NO configurar CORS en microservicios individuales
+✅ CORS se configura ÚNICAMENTE en vg-ms-gateway
+```
+
+**Razón**: Los microservicios están detrás del Gateway. Las peticiones del browser llegan al Gateway, NO directamente a los microservicios.
+
+### 2️⃣ RabbitMQ - Exchanges/Queues en JAVA
+
+```
+❌ NO configurar exchanges/queues/routing-keys en YAML
+✅ Eso va en RabbitMQConfig.java (clase de configuración)
+```
+
+**En YAML solo va**: host, port, username, password, publisher-confirm-type
+
+### 3️⃣ Propiedades que SÍ existen en Spring Boot 3.x
+
+```yaml
+# ✅ VÁLIDAS
+spring.rabbitmq.host
+spring.rabbitmq.port
+spring.rabbitmq.username
+spring.rabbitmq.password
+spring.rabbitmq.virtual-host
+spring.rabbitmq.publisher-confirm-type
+spring.rabbitmq.publisher-returns
+spring.rabbitmq.listener.simple.acknowledge-mode
+spring.rabbitmq.listener.simple.prefetch
+
+# ❌ NO EXISTEN / INVENTADAS
+spring.rabbitmq.template.exchange      # NO EXISTE
+spring.rabbitmq.template.routing-key   # NO EXISTE
+spring.webflux.cors                    # NO EXISTE
+```
+
+---
+
+## 🔧 ESTRUCTURA DE ARCHIVOS POR SERVICIO
 
 ```
 src/main/resources/
-├── application.yml          → Configuración base + perfiles
-├── application-dev.yml      → Desarrollo local
+├── application.yml          → Configuración base (nombre, puerto, actuator)
+├── application-dev.yml      → Desarrollo local (conexiones localhost)
 └── application-prod.yml     → Producción (variables de entorno)
 ```
 
 ---
 
-## 1️⃣ vg-ms-users
+# 1️⃣ vg-ms-users
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -49,19 +91,14 @@ spring:
     name: vg-ms-users
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
-  # Configuración WebFlux
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
-# Servidor
 server:
   port: 8081
   shutdown: graceful
-
-# Graceful Shutdown
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
 
 # Swagger/OpenAPI
 springdoc:
@@ -91,8 +128,6 @@ management:
   health:
     circuitbreakers:
       enabled: true
-    ratelimiters:
-      enabled: true
     db:
       enabled: true
     rabbit:
@@ -104,21 +139,13 @@ logging:
     root: INFO
     pe.edu.vallegrande: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{correlationId}] [%thread] %-5level %logger{36} - %msg%n"
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS para desarrollo
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   # PostgreSQL R2DBC
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/sistemajass
@@ -128,7 +155,6 @@ spring:
       initial-size: 5
       max-size: 20
       max-idle-time: 30m
-      validation-query: SELECT 1
 
   # Flyway Migrations
   flyway:
@@ -140,7 +166,7 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
 
-  # RabbitMQ
+  # RabbitMQ (solo conexión, exchanges/queues van en RabbitMQConfig.java)
   rabbitmq:
     host: localhost
     port: 5672
@@ -149,31 +175,6 @@ spring:
     virtual-host: /
     publisher-confirm-type: correlated
     publisher-returns: true
-    template:
-      mandatory: true
-    listener:
-      simple:
-        acknowledge-mode: manual
-        prefetch: 10
-        retry:
-          enabled: true
-          initial-interval: 1000
-          max-attempts: 3
-          multiplier: 2.0
-
-# RabbitMQ Exchanges y Queues
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  queues:
-    user-events: user.events.queue
-  routing-keys:
-    user-created: user.created
-    user-updated: user.updated
-    user-deleted: user.deleted
-    user-restored: user.restored
-    user-purged: user.purged
 
 # WebClient - URLs de servicios externos
 webclient:
@@ -188,7 +189,7 @@ webclient:
     notification:
       base-url: http://localhost:8090
 
-# Resilience4j - Circuit Breaker + Retry + TimeLimiter
+# Resilience4j
 resilience4j:
   circuitbreaker:
     configs:
@@ -202,11 +203,6 @@ resilience4j:
         failure-rate-threshold: 50
         slow-call-rate-threshold: 80
         slow-call-duration-threshold: 3s
-        record-exceptions:
-          - java.io.IOException
-          - java.net.ConnectException
-          - java.util.concurrent.TimeoutException
-          - org.springframework.web.reactive.function.client.WebClientResponseException
     instances:
       authenticationService:
         base-config: default
@@ -223,10 +219,6 @@ resilience4j:
         wait-duration: 500ms
         enable-exponential-backoff: true
         exponential-backoff-multiplier: 2
-        retry-exceptions:
-          - java.io.IOException
-          - java.net.ConnectException
-          - java.util.concurrent.TimeoutException
     instances:
       authenticationService:
         base-config: default
@@ -247,36 +239,21 @@ resilience4j:
       organizationService:
         base-config: default
       notificationService:
-        base-config: default
         timeout-duration: 10s
-
-# Swagger habilitado en dev
-springdoc:
-  swagger-ui:
-    enabled: true
 
 # Logging detallado en dev
 logging:
   level:
     pe.edu.vallegrande: DEBUG
     org.springframework.r2dbc: DEBUG
-    org.springframework.web.reactive: DEBUG
     io.github.resilience4j: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  # CORS restringido en producción
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
-  # PostgreSQL R2DBC - Neon
+  # PostgreSQL R2DBC
   r2dbc:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
@@ -323,23 +300,22 @@ webclient:
 # Swagger deshabilitado en producción
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 # Logging mínimo en producción
 logging:
   level:
     root: WARN
     pe.edu.vallegrande: INFO
-    org.springframework.r2dbc: WARN
 ```
 
 ---
 
-## 2️⃣ vg-ms-authentication
+# 2️⃣ vg-ms-authentication
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -347,16 +323,14 @@ spring:
     name: vg-ms-authentication
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8082
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
 
 springdoc:
   api-docs:
@@ -367,7 +341,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -389,18 +362,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   # RabbitMQ - Escucha eventos de users
   rabbitmq:
     host: localhost
@@ -412,10 +377,6 @@ spring:
       simple:
         acknowledge-mode: manual
         prefetch: 5
-        retry:
-          enabled: true
-          initial-interval: 1000
-          max-attempts: 3
 
 # Keycloak Configuration
 keycloak:
@@ -428,17 +389,6 @@ keycloak:
     username: admin
     password: admin
     client-id: admin-cli
-
-# Queues que escucha
-rabbitmq:
-  exchange:
-    name: jass.events
-  queues:
-    user-sync: authentication.user-sync.queue
-  bindings:
-    - queue: authentication.user-sync.queue
-      exchange: jass.events
-      routing-key: user.*
 
 # WebClient
 webclient:
@@ -489,27 +439,16 @@ resilience4j:
       keycloakService:
         timeout-duration: 10s
 
-springdoc:
-  swagger-ui:
-    enabled: true
-
 logging:
   level:
     pe.edu.vallegrande: DEBUG
     org.keycloak: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   rabbitmq:
     host: ${RABBITMQ_HOST}
     port: ${RABBITMQ_PORT:5672}
@@ -517,6 +456,10 @@ spring:
     password: ${RABBITMQ_PASSWORD}
     ssl:
       enabled: ${RABBITMQ_SSL_ENABLED:false}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 5
 
 keycloak:
   realm: ${KEYCLOAK_REALM}
@@ -536,9 +479,9 @@ webclient:
 
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -548,9 +491,9 @@ logging:
 
 ---
 
-## 3️⃣ vg-ms-organizations
+# 3️⃣ vg-ms-organizations
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -558,22 +501,14 @@ spring:
     name: vg-ms-organizations
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8083
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-# Security - JWT Validation (tokens del Gateway)
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/jass-digital}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/jass-digital/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -584,7 +519,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -606,18 +540,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   # MongoDB
   data:
     mongodb:
@@ -634,39 +560,16 @@ spring:
     publisher-confirm-type: correlated
     publisher-returns: true
 
-# RabbitMQ Config
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  routing-keys:
-    organization-created: organization.created
-    organization-updated: organization.updated
-    organization-deleted: organization.deleted
-    zone-created: zone.created
-    street-created: street.created
-
-springdoc:
-  swagger-ui:
-    enabled: true
-
 logging:
   level:
     pe.edu.vallegrande: DEBUG
     org.springframework.data.mongodb: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   data:
     mongodb:
       uri: ${MONGODB_URI}
@@ -680,16 +583,11 @@ spring:
     ssl:
       enabled: ${RABBITMQ_SSL_ENABLED:false}
 
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI}
-
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -699,9 +597,9 @@ logging:
 
 ---
 
-## 4️⃣ vg-ms-commercial-operations
+# 4️⃣ vg-ms-commercial-operations
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -709,21 +607,14 @@ spring:
     name: vg-ms-commercial-operations
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8084
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/jass-digital}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/jass-digital/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -734,7 +625,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -758,18 +648,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   # PostgreSQL R2DBC
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/sistemajass
@@ -798,23 +680,11 @@ spring:
     publisher-confirm-type: correlated
     publisher-returns: true
 
-# RabbitMQ Config
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  routing-keys:
-    receipt-created: receipt.created
-    payment-completed: payment.completed
-    payment-cancelled: payment.cancelled
-    debt-generated: debt.generated
-    service-cut-scheduled: service-cut.scheduled
-    service-reconnected: service-cut.reconnected
-
 # WebClient
 webclient:
   connect-timeout: 5000
   read-timeout: 10000
+  write-timeout: 10000
   services:
     user:
       base-url: http://localhost:8081
@@ -847,7 +717,6 @@ resilience4j:
         max-attempts: 3
         wait-duration: 500ms
         enable-exponential-backoff: true
-        exponential-backoff-multiplier: 2
     instances:
       userService:
         base-config: default
@@ -868,27 +737,16 @@ resilience4j:
       notificationService:
         timeout-duration: 10s
 
-springdoc:
-  swagger-ui:
-    enabled: true
-
 logging:
   level:
     pe.edu.vallegrande: DEBUG
     org.springframework.r2dbc: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   r2dbc:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
@@ -920,16 +778,11 @@ webclient:
     notification:
       base-url: ${NOTIFICATION_SERVICE_URL}
 
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI}
-
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -939,9 +792,9 @@ logging:
 
 ---
 
-## 5️⃣ vg-ms-water-quality
+# 5️⃣ vg-ms-water-quality
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -949,21 +802,14 @@ spring:
     name: vg-ms-water-quality
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8085
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/jass-digital}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/jass-digital/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -974,7 +820,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -996,18 +841,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   data:
     mongodb:
       uri: mongodb://localhost:27017/JASS_DIGITAL
@@ -1021,36 +858,16 @@ spring:
     publisher-confirm-type: correlated
     publisher-returns: true
 
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  routing-keys:
-    quality-test-created: quality-test.created
-    quality-test-completed: quality-test.completed
-    quality-alert: quality.alert
-
-springdoc:
-  swagger-ui:
-    enabled: true
-
 logging:
   level:
     pe.edu.vallegrande: DEBUG
     org.springframework.data.mongodb: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   data:
     mongodb:
       uri: ${MONGODB_URI}
@@ -1064,16 +881,11 @@ spring:
     ssl:
       enabled: ${RABBITMQ_SSL_ENABLED:false}
 
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI}
-
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -1083,9 +895,9 @@ logging:
 
 ---
 
-## 6️⃣ vg-ms-distribution
+# 6️⃣ vg-ms-distribution
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -1093,21 +905,14 @@ spring:
     name: vg-ms-distribution
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8086
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/jass-digital}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/jass-digital/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -1118,7 +923,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -1140,18 +944,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   data:
     mongodb:
       uri: mongodb://localhost:27017/JASS_DIGITAL
@@ -1165,36 +961,16 @@ spring:
     publisher-confirm-type: correlated
     publisher-returns: true
 
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  routing-keys:
-    program-created: distribution.program.created
-    route-created: distribution.route.created
-    schedule-created: distribution.schedule.created
-
-springdoc:
-  swagger-ui:
-    enabled: true
-
 logging:
   level:
     pe.edu.vallegrande: DEBUG
     org.springframework.data.mongodb: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   data:
     mongodb:
       uri: ${MONGODB_URI}
@@ -1208,16 +984,11 @@ spring:
     ssl:
       enabled: ${RABBITMQ_SSL_ENABLED:false}
 
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI}
-
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -1227,9 +998,9 @@ logging:
 
 ---
 
-## 7️⃣ vg-ms-inventory-purchases
+# 7️⃣ vg-ms-inventory-purchases
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -1237,21 +1008,14 @@ spring:
     name: vg-ms-inventory-purchases
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8087
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/jass-digital}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/jass-digital/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -1262,7 +1026,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -1284,18 +1047,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/sistemajass
     username: sistemajass_user
@@ -1303,6 +1058,7 @@ spring:
     pool:
       initial-size: 5
       max-size: 20
+      max-idle-time: 30m
 
   flyway:
     enabled: true
@@ -1320,38 +1076,16 @@ spring:
     publisher-confirm-type: correlated
     publisher-returns: true
 
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  routing-keys:
-    supplier-created: inventory.supplier.created
-    material-created: inventory.material.created
-    purchase-created: inventory.purchase.created
-    purchase-received: inventory.purchase.received
-    low-stock-alert: inventory.low-stock.alert
-
-springdoc:
-  swagger-ui:
-    enabled: true
-
 logging:
   level:
     pe.edu.vallegrande: DEBUG
     org.springframework.r2dbc: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   r2dbc:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
@@ -1374,16 +1108,11 @@ spring:
     ssl:
       enabled: ${RABBITMQ_SSL_ENABLED:false}
 
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI}
-
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -1393,9 +1122,9 @@ logging:
 
 ---
 
-## 8️⃣ vg-ms-claims-incidents
+# 8️⃣ vg-ms-claims-incidents
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -1403,21 +1132,14 @@ spring:
     name: vg-ms-claims-incidents
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8088
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/jass-digital}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/jass-digital/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -1428,7 +1150,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -1452,18 +1173,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   data:
     mongodb:
       uri: mongodb://localhost:27017/JASS_DIGITAL
@@ -1476,18 +1189,6 @@ spring:
     password: guest
     publisher-confirm-type: correlated
     publisher-returns: true
-
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  routing-keys:
-    complaint-created: complaint.created
-    complaint-closed: complaint.closed
-    incident-created: incident.created
-    incident-assigned: incident.assigned
-    incident-resolved: incident.resolved
-    urgent-incident-alert: incident.urgent.alert
 
 # WebClient
 webclient:
@@ -1531,15 +1232,6 @@ resilience4j:
     configs:
       default:
         timeout-duration: 5s
-    instances:
-      userService:
-        base-config: default
-      infrastructureService:
-        base-config: default
-
-springdoc:
-  swagger-ui:
-    enabled: true
 
 logging:
   level:
@@ -1547,17 +1239,10 @@ logging:
     org.springframework.data.mongodb: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   data:
     mongodb:
       uri: ${MONGODB_URI}
@@ -1578,16 +1263,11 @@ webclient:
     infrastructure:
       base-url: ${INFRASTRUCTURE_SERVICE_URL}
 
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI}
-
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -1597,9 +1277,9 @@ logging:
 
 ---
 
-## 9️⃣ vg-ms-infrastructure
+# 9️⃣ vg-ms-infrastructure
 
-### application.yml (Base)
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -1607,21 +1287,14 @@ spring:
     name: vg-ms-infrastructure
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   webflux:
     base-path: /api/v1
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8089
   shutdown: graceful
-
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/jass-digital}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/jass-digital/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -1632,7 +1305,6 @@ springdoc:
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
-    tags-sorter: alpha
 
 management:
   endpoints:
@@ -1656,18 +1328,10 @@ logging:
     pe.edu.vallegrande: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
-  # CORS
-  webflux:
-    cors:
-      allowed-origins: "*"
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/sistemajass
     username: sistemajass_user
@@ -1675,6 +1339,7 @@ spring:
     pool:
       initial-size: 5
       max-size: 20
+      max-idle-time: 30m
 
   flyway:
     enabled: true
@@ -1695,28 +1360,6 @@ spring:
       simple:
         acknowledge-mode: manual
         prefetch: 10
-
-# RabbitMQ Config - Publica y Escucha
-rabbitmq:
-  exchange:
-    name: jass.events
-    type: topic
-  queues:
-    service-cut-events: infrastructure.service-cut.queue
-    incident-events: infrastructure.incident.queue
-  bindings:
-    - queue: infrastructure.service-cut.queue
-      exchange: jass.events
-      routing-key: service-cut.*
-    - queue: infrastructure.incident.queue
-      exchange: jass.events
-      routing-key: incident.created
-  routing-keys:
-    water-box-created: water-box.created
-    water-box-assigned: water-box.assigned
-    water-box-transferred: water-box.transferred
-    water-box-suspended: water-box.suspended
-    water-box-reconnected: water-box.reconnected
 
 # WebClient
 webclient:
@@ -1760,15 +1403,6 @@ resilience4j:
     configs:
       default:
         timeout-duration: 5s
-    instances:
-      userService:
-        base-config: default
-      organizationService:
-        base-config: default
-
-springdoc:
-  swagger-ui:
-    enabled: true
 
 logging:
   level:
@@ -1776,17 +1410,10 @@ logging:
     org.springframework.r2dbc: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
-  webflux:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS}
-      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-      allowed-headers: "*"
-      max-age: 3600
-
   r2dbc:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
@@ -1808,6 +1435,10 @@ spring:
     password: ${RABBITMQ_PASSWORD}
     ssl:
       enabled: ${RABBITMQ_SSL_ENABLED:false}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 10
 
 webclient:
   services:
@@ -1816,16 +1447,11 @@ webclient:
     organization:
       base-url: ${ORGANIZATION_SERVICE_URL}
 
-security:
-  jwt:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI}
-    jwk-set-uri: ${KEYCLOAK_JWK_URI}
-
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: false
 
 logging:
   level:
@@ -1835,11 +1461,11 @@ logging:
 
 ---
 
-## 🔟 vg-ms-notification (Node.js/TypeScript)
+# 🔟 vg-ms-notification (Node.js/TypeScript)
 
 > Este servicio usa **Node.js/Express con TypeScript**
 
-### Estructura de archivos
+## Estructura de archivos
 
 ```
 vg-ms-notification/
@@ -1861,44 +1487,7 @@ vg-ms-notification/
 └── .env.production
 ```
 
-### package.json
-
-```json
-{
-  "name": "vg-ms-notification",
-  "version": "1.0.0",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn src/index.ts",
-    "lint": "eslint src/**/*.ts"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "twilio": "^4.19.0",
-    "nodemailer": "^6.9.7",
-    "amqplib": "^0.10.3",
-    "dotenv": "^16.3.1",
-    "winston": "^3.11.0",
-    "helmet": "^7.1.0",
-    "cors": "^2.8.5"
-  },
-  "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/amqplib": "^0.10.4",
-    "@types/nodemailer": "^6.4.14",
-    "@types/cors": "^2.8.17",
-    "typescript": "^5.3.2",
-    "ts-node-dev": "^2.0.0",
-    "eslint": "^8.55.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.2",
-    "@typescript-eslint/parser": "^6.13.2"
-  }
-}
-```
-
-### .env (Development)
+## .env (Development)
 
 ```env
 # Server
@@ -1927,78 +1516,37 @@ RABBITMQ_QUEUE=notification.events.queue
 LOG_LEVEL=debug
 ```
 
-### .env.production
+## .env.production
 
 ```env
-# Server
 NODE_ENV=production
 PORT=8090
 
-# Twilio
 TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
 TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
 TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
 TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
 
-# Email
 SMTP_HOST=${SMTP_HOST}
 SMTP_PORT=${SMTP_PORT}
 SMTP_USER=${SMTP_USER}
 SMTP_PASS=${SMTP_PASS}
 SMTP_FROM=${SMTP_FROM}
 
-# RabbitMQ
 RABBITMQ_URL=${RABBITMQ_URL}
 RABBITMQ_EXCHANGE=jass.events
 RABBITMQ_QUEUE=notification.events.queue
 
-# Logging
 LOG_LEVEL=info
-```
-
-### src/config/env.ts
-
-```typescript
-import dotenv from 'dotenv';
-
-dotenv.config({
-  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env'
-});
-
-export const config = {
-  nodeEnv: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT || '8090', 10),
-
-  twilio: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID!,
-    authToken: process.env.TWILIO_AUTH_TOKEN!,
-    phoneNumber: process.env.TWILIO_PHONE_NUMBER!,
-    whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER!,
-  },
-
-  smtp: {
-    host: process.env.SMTP_HOST!,
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    user: process.env.SMTP_USER!,
-    pass: process.env.SMTP_PASS!,
-    from: process.env.SMTP_FROM!,
-  },
-
-  rabbitmq: {
-    url: process.env.RABBITMQ_URL!,
-    exchange: process.env.RABBITMQ_EXCHANGE || 'jass.events',
-    queue: process.env.RABBITMQ_QUEUE || 'notification.events.queue',
-  },
-
-  logLevel: process.env.LOG_LEVEL || 'info',
-};
 ```
 
 ---
 
-## 1️⃣1️⃣ vg-ms-gateway
+# 1️⃣1️⃣ vg-ms-gateway
 
-### application.yml (Base)
+> **⚠️ ÚNICO SERVICIO CON CORS** - CORS se configura SOLO aquí
+
+## application.yml (Base)
 
 ```yaml
 spring:
@@ -2006,8 +1554,10 @@ spring:
     name: vg-ms-gateway
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
-  # CORS Global en Gateway
+  # CORS GLOBAL - SOLO AQUÍ
   cloud:
     gateway:
       globalcors:
@@ -2025,6 +1575,7 @@ spring:
             exposed-headers:
               - Authorization
               - Content-Disposition
+              - X-Correlation-Id
             allow-credentials: false
             max-age: 3600
 
@@ -2037,10 +1588,6 @@ server:
   port: 8080
   shutdown: graceful
 
-spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
-
-# Actuator
 management:
   endpoints:
     web:
@@ -2063,7 +1610,7 @@ logging:
     org.springframework.security: INFO
 ```
 
-### application-dev.yml (Desarrollo)
+## application-dev.yml (Desarrollo)
 
 ```yaml
 spring:
@@ -2207,11 +1754,6 @@ resilience4j:
     configs:
       default:
         timeout-duration: 10s
-    instances:
-      usersService:
-        base-config: default
-      organizationsService:
-        base-config: default
 
 logging:
   level:
@@ -2219,12 +1761,30 @@ logging:
     org.springframework.security: DEBUG
 ```
 
-### application-prod.yml (Producción)
+## application-prod.yml (Producción)
 
 ```yaml
 spring:
   cloud:
     gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            # ORÍGENES ESPECÍFICOS EN PRODUCCIÓN
+            allowed-origins:
+              - ${FRONTEND_URL}
+              - ${ADMIN_URL}
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowed-headers: "*"
+            allow-credentials: true
+            max-age: 3600
+
       routes:
         - id: users-service
           uri: ${USERS_SERVICE_URL}
@@ -2330,76 +1890,97 @@ logging:
 
 ---
 
-## ✅ RESUMEN DE MEJORAS APLICADAS
+# 📦 CLASE RabbitMQConfig.java (Ejemplo para vg-ms-users)
 
-### 🔒 Seguridad
+> **Exchanges, Queues y Bindings van en JAVA, NO en YAML**
 
-- ✅ JWT validation en todos los microservicios (excepto auth y gateway que lo manejan diferente)
-- ✅ CORS configurado por perfil (permisivo en dev, restringido en prod)
-- ✅ Credenciales externalizadas con variables de entorno en producción
-- ✅ Sin credenciales hardcodeadas en producción
+```java
+package pe.edu.vallegrande.vgmsusers.infrastructure.config;
 
-### 🔄 Resiliencia
+import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-- ✅ Circuit Breaker con configuración completa
-- ✅ Retry con exponential backoff
-- ✅ Time Limiter para timeouts
-- ✅ Health indicators para monitoreo
+/**
+ * Configuración de RabbitMQ.
+ *
+ * Exchanges, Queues y Bindings se definen aquí (NO en YAML).
+ */
+@Configuration
+public class RabbitMQConfig {
 
-### 📡 Comunicación
+    // ═══════════════════════════════════════════════════════════════
+    // CONSTANTES
+    // ═══════════════════════════════════════════════════════════════
 
-- ✅ WebClient con timeouts configurados
-- ✅ RabbitMQ con publisher confirms
-- ✅ Listener con acknowledge manual y retry
+    public static final String EXCHANGE_NAME = "jass.events";
 
-### 🛡️ Producción
+    // Routing Keys
+    public static final String USER_CREATED_KEY = "user.created";
+    public static final String USER_UPDATED_KEY = "user.updated";
+    public static final String USER_DELETED_KEY = "user.deleted";
+    public static final String USER_RESTORED_KEY = "user.restored";
+    public static final String USER_PURGED_KEY = "user.purged";
 
-- ✅ Graceful shutdown (30s timeout)
-- ✅ Swagger deshabilitado por defecto en prod
-- ✅ Logging reducido en prod
-- ✅ Connection pools optimizados
+    // ═══════════════════════════════════════════════════════════════
+    // EXCHANGE
+    // ═══════════════════════════════════════════════════════════════
 
-### 📊 Monitoreo
+    @Bean
+    public TopicExchange jassEventsExchange() {
+        return ExchangeBuilder
+            .topicExchange(EXCHANGE_NAME)
+            .durable(true)
+            .build();
+    }
 
-- ✅ Actuator endpoints expuestos
-- ✅ Health checks para DB, RabbitMQ, CircuitBreakers
-- ✅ Métricas disponibles para Prometheus
+    // ═══════════════════════════════════════════════════════════════
+    // MESSAGE CONVERTER
+    // ═══════════════════════════════════════════════════════════════
+
+    @Bean
+    public MessageConverter jsonMessageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RABBIT TEMPLATE
+    // ═══════════════════════════════════════════════════════════════
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(
+            ConnectionFactory connectionFactory,
+            MessageConverter jsonMessageConverter
+    ) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        template.setMessageConverter(jsonMessageConverter);
+        template.setExchange(EXCHANGE_NAME);
+        return template;
+    }
+}
+```
 
 ---
 
-## 📦 RESUMEN POR TIPO DE SERVICIO
+# ✅ RESUMEN DE CORRECCIONES
 
-### Servicios PostgreSQL (4)
-
-| Servicio | Puerto | WebClient | RabbitMQ |
-|----------|--------|-----------|----------|
-| users | 8081 | auth, org, notif | Publisher |
-| commercial-operations | 8084 | user, infra, notif | Publisher |
-| inventory-purchases | 8087 | - | Publisher |
-| infrastructure | 8089 | user, org | Pub + Listener |
-
-### Servicios MongoDB (4)
-
-| Servicio | Puerto | WebClient | RabbitMQ |
-|----------|--------|-----------|----------|
-| organizations | 8083 | - | Publisher |
-| water-quality | 8085 | - | Publisher |
-| distribution | 8086 | - | Publisher |
-| claims-incidents | 8088 | user, infra | Publisher |
-
-### Servicios Especiales (3)
-
-| Servicio | Puerto | Tipo | RabbitMQ |
-|----------|--------|------|----------|
-| authentication | 8082 | Keycloak Proxy | Listener |
-| notification | 8090 | Node.js | Listener |
-| gateway | 8080 | API Gateway | - |
+| Problema | Solución |
+|----------|----------|
+| CORS en cada microservicio | ❌ Eliminado. Solo en Gateway |
+| `spring.webflux.cors` | ❌ No existe. Usar `spring.cloud.gateway.globalcors` en Gateway |
+| RabbitMQ exchanges en YAML | ❌ Movido a `RabbitMQConfig.java` |
+| `spring.rabbitmq.template.exchange` | ❌ No existe. Configurar en RabbitTemplate bean |
+| Propiedades duplicadas | ❌ Eliminadas duplicaciones |
 
 ---
 
-## 🔑 VARIABLES DE ENTORNO REQUERIDAS EN PRODUCCIÓN
+# 🔑 VARIABLES DE ENTORNO REQUERIDAS EN PRODUCCIÓN
 
-### Base de Datos
+## Base de Datos
 
 ```env
 DATABASE_URL=r2dbc:postgresql://host:5432/db?sslMode=require
@@ -2409,7 +1990,7 @@ DATABASE_PASSWORD=password
 MONGODB_URI=mongodb+srv://user:pass@cluster/db
 ```
 
-### RabbitMQ
+## RabbitMQ
 
 ```env
 RABBITMQ_HOST=host
@@ -2420,7 +2001,7 @@ RABBITMQ_VHOST=/
 RABBITMQ_SSL_ENABLED=false
 ```
 
-### Keycloak
+## Keycloak
 
 ```env
 KEYCLOAK_URL=https://keycloak.domain.com
@@ -2431,23 +2012,28 @@ KEYCLOAK_ISSUER_URI=https://keycloak.domain.com/realms/jass-digital
 KEYCLOAK_JWK_URI=https://keycloak.domain.com/realms/jass-digital/protocol/openid-connect/certs
 ```
 
-### URLs de Servicios
+## URLs de Servicios (para Gateway)
 
 ```env
-USER_SERVICE_URL=https://users.domain.com
-AUTHENTICATION_SERVICE_URL=https://auth.domain.com
-ORGANIZATION_SERVICE_URL=https://org.domain.com
-INFRASTRUCTURE_SERVICE_URL=https://infra.domain.com
-NOTIFICATION_SERVICE_URL=https://notif.domain.com
-# ... etc
+USERS_SERVICE_URL=http://vg-ms-users:8081
+AUTH_SERVICE_URL=http://vg-ms-authentication:8082
+ORGANIZATIONS_SERVICE_URL=http://vg-ms-organizations:8083
+COMMERCIAL_SERVICE_URL=http://vg-ms-commercial-operations:8084
+WATER_QUALITY_SERVICE_URL=http://vg-ms-water-quality:8085
+DISTRIBUTION_SERVICE_URL=http://vg-ms-distribution:8086
+INVENTORY_SERVICE_URL=http://vg-ms-inventory-purchases:8087
+CLAIMS_SERVICE_URL=http://vg-ms-claims-incidents:8088
+INFRASTRUCTURE_SERVICE_URL=http://vg-ms-infrastructure:8089
 ```
 
-### Otros
+## Frontend (para CORS en Gateway)
 
 ```env
-CORS_ALLOWED_ORIGINS=https://app.domain.com,https://admin.domain.com
-SWAGGER_ENABLED=false
-SPRING_PROFILES_ACTIVE=prod
+CORS_ALLOWED_ORIGINS=*
+FRONTEND_URL=https://app.jassdigital.com
+ADMIN_URL=https://admin.jassdigital.com
 ```
 
-**TOTAL: 11 servicios completamente configurados** ✅
+---
+
+**✅ TOTAL: 11 servicios completamente configurados y corregidos**

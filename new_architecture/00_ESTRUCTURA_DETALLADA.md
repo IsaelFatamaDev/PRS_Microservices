@@ -457,7 +457,8 @@ public class UserEventPublisherImpl implements IUserEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    private static final String EXCHANGE = "user.events";
+    // Exchange centralizado para todo el sistema JASS
+    private static final String EXCHANGE = "jass.events";
 
     @Override
     public void publishUserCreated(User user, String createdBy) {
@@ -606,14 +607,17 @@ public class UserEventListener {
 
 ## 📊 Matriz de Eventos por Microservicio
 
-| Microservicio | Exchange | Eventos que PUBLICA | Routing Keys |
-|---------------|----------|---------------------|--------------|
-| **users** | `user.events` | Created, Updated, Deleted, Restored, Purged | `user.created`, `user.updated`, `user.deleted`, `user.restored`, `user.purged` |
-| **authentication** | - | (Solo escucha) | - |
-| **organizations** | `organization.events` | Created, Updated, Deleted, Restored | `organization.created`, `organization.updated`, etc. |
-| **commercial** | `commercial.events` | PaymentCreated, ReceiptGenerated, ServiceCutScheduled | `payment.created`, `receipt.generated`, `service-cut.scheduled` |
-| **claims** | `claims.events` | ComplaintCreated, IncidentCreated, StatusChanged | `complaint.created`, `incident.created`, `status.changed` |
-| **infrastructure** | `infrastructure.events` | WaterBoxAssigned, WaterBoxTransferred | `waterbox.assigned`, `waterbox.transferred` |
+> **⚠️ IMPORTANTE**: Todos los microservicios usan el **exchange centralizado `jass.events`**.
+> Los routing keys diferencian el tipo de evento.
+
+| Microservicio | Eventos que PUBLICA | Routing Keys |
+|---------------|---------------------|---------------|
+| **users** | Created, Updated, Deleted, Restored, Purged | `user.created`, `user.updated`, `user.deleted`, `user.restored`, `user.purged` |
+| **authentication** | (Solo escucha) | - |
+| **organizations** | Created, Updated, Deleted, Restored | `organization.created`, `organization.updated`, etc. |
+| **commercial** | PaymentCreated, ReceiptGenerated, ServiceCutScheduled | `payment.created`, `receipt.generated`, `service-cut.scheduled` |
+| **claims** | ComplaintCreated, IncidentCreated, StatusChanged | `complaint.created`, `incident.created`, `status.changed` |
+| **infrastructure** | WaterBoxAssigned, WaterBoxTransferred | `waterbox.assigned`, `waterbox.transferred` |
 
 | Microservicio | Eventos que ESCUCHA | Acción |
 |---------------|---------------------|--------|
@@ -625,22 +629,31 @@ public class UserEventListener {
 
 ## ⚙️ Configuración RabbitMQ
 
+> **📌 NOTA**: Exchanges, Queues y Bindings se configuran en Java, **NO en YAML**.
+> En application.yml solo va: host, port, username, password, publisher-confirm-type.
+
 ```java
 // infrastructure/config/RabbitMQConfig.java
 @Configuration
 public class RabbitMQConfig {
 
     // ══════════════════════════════════════════════════════════════
-    // EXCHANGES
+    // EXCHANGE CENTRALIZADO - Compartido por todos los microservicios
     // ══════════════════════════════════════════════════════════════
 
+    public static final String EXCHANGE_NAME = "jass.events";
+
     @Bean
-    public TopicExchange userEventsExchange() {
-        return new TopicExchange("user.events");
+    public TopicExchange jassEventsExchange() {
+        return ExchangeBuilder
+            .topicExchange(EXCHANGE_NAME)
+            .durable(true)
+            .build();
     }
 
     // ══════════════════════════════════════════════════════════════
     // QUEUES (para este servicio como consumidor)
+    // Ejemplo: vg-ms-authentication escuchando eventos de users
     // ══════════════════════════════════════════════════════════════
 
     @Bean
@@ -671,7 +684,7 @@ public class RabbitMQConfig {
     public Binding bindingUserCreated() {
         return BindingBuilder
             .bind(authenticationUserCreatedQueue())
-            .to(userEventsExchange())
+            .to(jassEventsExchange())
             .with("user.created");
     }
 
@@ -679,7 +692,7 @@ public class RabbitMQConfig {
     public Binding bindingUserDeleted() {
         return BindingBuilder
             .bind(authenticationUserDeletedQueue())
-            .to(userEventsExchange())
+            .to(jassEventsExchange())
             .with("user.deleted");
     }
 
@@ -687,7 +700,7 @@ public class RabbitMQConfig {
     public Binding bindingUserRestored() {
         return BindingBuilder
             .bind(authenticationUserRestoredQueue())
-            .to(userEventsExchange())
+            .to(jassEventsExchange())
             .with("user.restored");
     }
 
@@ -695,7 +708,7 @@ public class RabbitMQConfig {
     public Binding bindingUserPurged() {
         return BindingBuilder
             .bind(authenticationUserPurgedQueue())
-            .to(userEventsExchange())
+            .to(jassEventsExchange())
             .with("user.purged");
     }
 
@@ -931,7 +944,7 @@ vg-ms-authentication/
 - ❌ NO hay tabla `credentials` ni PostgreSQL
 - ✅ TODA la autenticación se maneja en Keycloak
 - ✅ Este servicio solo CONSULTA y CREA usuarios en Keycloak via Admin API
-- ✅ ESCUCHA eventos de `user.events` para sincronizar Keycloak
+- ✅ ESCUCHA eventos de `jass.events` (routing keys: `user.*`) para sincronizar Keycloak
 
 ---
 
@@ -2051,26 +2064,26 @@ vg-ms-notification/
 └── README.md
 ```
 
-**Eventos que ESCUCHA vg-ms-notification**:
+**Eventos que ESCUCHA vg-ms-notification** (todos del exchange `jass.events`):
 
-| Exchange         | Routing Key                | Acción                              |
-|------------------|----------------------------|-------------------------------------|
-| user.events      | user.created               | Enviar WhatsApp de bienvenida       |
-| user.events      | user.deleted               | Enviar email de despedida           |
-| payment.events   | payment.completed          | Enviar confirmación de pago         |
-| payment.events   | payment.cancelled          | Notificar pago anulado              |
-| receipt.events   | receipt.generated          | Enviar recibo mensual               |
-| receipt.events   | receipt.overdue            | Enviar recordatorio de mora         |
-| service.events   | service-cut.scheduled      | Enviar aviso de corte programado    |
-| service.events   | service-cut.executed       | Notificar corte ejecutado           |
-| service.events   | service.reconnected        | Notificar reconexión                |
-| complaint.events | complaint.created          | Confirmar recepción de queja        |
-| complaint.events | complaint.resolved         | Notificar resolución                |
-| incident.events  | incident.created           | Notificar incidente reportado       |
-| incident.events  | urgent-incident.alert      | Alerta urgente a administradores    |
-| quality.events   | quality-test.completed     | Informe de calidad disponible       |
-| quality.events   | quality.alert              | Alerta de calidad de agua           |
-| distribution.events | distribution.scheduled  | Notificar horario de distribución   |
+| Routing Key                | Acción                              |
+|----------------------------|-------------------------------------|
+| user.created               | Enviar WhatsApp de bienvenida       |
+| user.deleted               | Enviar email de despedida           |
+| payment.completed          | Enviar confirmación de pago         |
+| payment.cancelled          | Notificar pago anulado              |
+| receipt.generated          | Enviar recibo mensual               |
+| receipt.overdue            | Enviar recordatorio de mora         |
+| service-cut.scheduled      | Enviar aviso de corte programado    |
+| service-cut.executed       | Notificar corte ejecutado           |
+| service.reconnected        | Notificar reconexión                |
+| complaint.created          | Confirmar recepción de queja        |
+| complaint.resolved         | Notificar resolución                |
+| incident.created           | Notificar incidente reportado       |
+| urgent-incident.alert      | Alerta urgente a administradores    |
+| quality-test.completed     | Informe de calidad disponible       |
+| quality.alert              | Alerta de calidad de agua           |
+| distribution.scheduled     | Notificar horario de distribución   |
 
 ---
 
@@ -2086,8 +2099,8 @@ vg-ms-gateway/
 │   │   ├── config/
 │   │   │   ├── GatewayConfig.java                      → [CLASS] @Configuration (Routes)
 │   │   │   ├── SecurityConfig.java                     → [CLASS] ResourceServer JWT
-│   │   │   ├── CorsConfig.java                         → [CLASS] Global CORS
 │   │   │   └── Resilience4jConfig.java                 → [CLASS] Circuit Breaker global
+│   │   │   └── ⚠️ CORS se configura en application.yml (spring.cloud.gateway.globalcors)
 │   │   ├── filters/
 │   │   │   ├── AuthenticationFilter.java               → [CLASS] Pre-filter JWT validation
 │   │   │   ├── TenantFilter.java                       → [CLASS] Extract organization_id

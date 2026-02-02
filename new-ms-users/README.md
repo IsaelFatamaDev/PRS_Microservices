@@ -133,7 +133,7 @@ vg-ms-users/
 │           ├── RabbitMQConfig.java
 │           ├── Resilience4jConfig.java
 │           ├── SecurityConfig.java
-│           └── CorsConfig.java
+│           └── RequestContextFilter.java
 │
 ├── src/main/resources/
 │   ├── application.yml
@@ -150,12 +150,26 @@ vg-ms-users/
 
 ---
 
+## ⚠️ Notas Importantes
+
+### CORS
+>
+> **CORS se configura ÚNICAMENTE en `vg-ms-gateway`**, NO en este ni ningún otro microservicio individual.
+> Los microservicios están detrás del Gateway, por lo que las peticiones del browser llegan primero al Gateway.
+
+### RabbitMQ
+>
+> **Exchanges, Queues y Bindings** se configuran en la clase `RabbitMQConfig.java`, **NO en YAML**.
+> En `application.yml` solo va: host, port, username, password, publisher-confirm-type.
+
+---
+
 ## 🔧 Tecnologías
 
 | Tecnología | Versión | Uso |
 |------------|---------|-----|
 | Java | 21 | Lenguaje |
-| Spring Boot | 3.2.x | Framework |
+| Spring Boot | 3.5.x | Framework |
 | Spring WebFlux | 3.2.x | API Reactiva |
 | R2DBC PostgreSQL | - | Base de datos reactiva |
 | Flyway | 9.x | Migraciones |
@@ -178,7 +192,7 @@ vg-ms-users/
 
 ## 📡 Eventos RabbitMQ
 
-### Exchange: `user.events`
+### Exchange: `jass.events` (compartido por todos los microservicios)
 
 | Routing Key | Evento | Descripción |
 |-------------|--------|-------------|
@@ -187,6 +201,8 @@ vg-ms-users/
 | `user.deleted` | UserDeletedEvent | Usuario eliminado (soft) |
 | `user.restored` | UserRestoredEvent | Usuario restaurado |
 | `user.purged` | UserPurgedEvent | Usuario eliminado (hard) |
+
+> **📌 Nota:** El exchange y routing keys se configuran en `RabbitMQConfig.java`, NO en YAML.
 
 ---
 

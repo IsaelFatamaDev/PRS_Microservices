@@ -34,12 +34,12 @@ infrastructure/
 │   └── repositories/
 │       └── UserR2dbcRepository.java
 └── config/
-    ├── R2dbcConfig.java
-    ├── WebClientConfig.java
-    ├── RabbitMQConfig.java
-    ├── Resilience4jConfig.java
-    ├── SecurityConfig.java
-    └── RequestContextFilter.java
+    ├── R2dbcConfig.java           → Configuración R2DBC/Pool
+    ├── WebClientConfig.java        → WebClient con Circuit Breaker
+    ├── RabbitMQConfig.java         → Exchange y RabbitTemplate
+    ├── Resilience4jConfig.java     → Circuit Breaker, Retry, TimeLimiter
+    ├── SecurityConfig.java         → Seguridad WebFlux
+    └── RequestContextFilter.java   → Propagación de headers
 ```
 
 ---
@@ -1298,43 +1298,78 @@ public class WebClientConfig {
 ```java
 package pe.edu.vallegrande.vgmsusers.infrastructure.config;
 
-import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * Configuración de RabbitMQ.
+ *
+ * <p><b>IMPORTANTE:</b> Exchanges, Queues y Bindings se definen AQUÍ, no en YAML.</p>
+ * <p>En application.yml solo va: host, port, username, password, publisher-confirm-type.</p>
+ *
+ * @author Valle Grande
+ * @since 1.0.0
  */
 @Configuration
 public class RabbitMQConfig {
 
-    public static final String USER_EVENTS_EXCHANGE = "user.events";
+    // ═══════════════════════════════════════════════════════════════
+    // CONSTANTES - Exchange centralizado para todo el sistema
+    // ═══════════════════════════════════════════════════════════════
+
+    public static final String EXCHANGE_NAME = "jass.events";
+
+    // Routing Keys para eventos de usuario
+    public static final String USER_CREATED_KEY = "user.created";
+    public static final String USER_UPDATED_KEY = "user.updated";
+    public static final String USER_DELETED_KEY = "user.deleted";
+    public static final String USER_RESTORED_KEY = "user.restored";
+    public static final String USER_PURGED_KEY = "user.purged";
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXCHANGE - Topic Exchange compartido por todos los microservicios
+    // ═══════════════════════════════════════════════════════════════
 
     @Bean
-    public TopicExchange userEventsExchange() {
-        return new TopicExchange(USER_EVENTS_EXCHANGE, true, false);
+    public TopicExchange jassEventsExchange() {
+        return ExchangeBuilder
+            .topicExchange(EXCHANGE_NAME)
+            .durable(true)
+            .build();
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // MESSAGE CONVERTER - JSON serialization
+    // ═══════════════════════════════════════════════════════════════
+
     @Bean
-    public Jackson2JsonMessageConverter messageConverter() {
+    public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RABBIT TEMPLATE - Configurado con el exchange y converter
+    // ═══════════════════════════════════════════════════════════════
 
     @Bean
     public RabbitTemplate rabbitTemplate(
             ConnectionFactory connectionFactory,
-            Jackson2JsonMessageConverter messageConverter
+            MessageConverter jsonMessageConverter
     ) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(messageConverter);
-        template.setExchange(USER_EVENTS_EXCHANGE);
+        template.setMessageConverter(jsonMessageConverter);
+        template.setExchange(EXCHANGE_NAME);
         return template;
     }
 }
 ```
+
+> **📌 Nota:** El exchange `jass.events` es compartido por todos los microservicios del sistema. Cada microservicio publica eventos con su routing key específica (ej: `user.created`, `payment.completed`, `claim.opened`).
 
 ---
 
@@ -1920,6 +1955,8 @@ COMMENT ON CONSTRAINT chk_users_contact ON users IS 'Al menos email o phone debe
 | Entities | 1 clase | UserEntity |
 | R2DBC Repository | 1 interface | UserR2dbcRepository |
 | Configs | 6 clases | R2DBC, WebClient, RabbitMQ, Resilience4j, Security, RequestContextFilter |
+
+> **⚠️ NOTA IMPORTANTE:** CORS se configura **SOLO en el Gateway** (`vg-ms-gateway`), NO en microservicios individuales.
 | SQL Migrations | 1 archivo | V1__create_users_table.sql |
 
 ---
