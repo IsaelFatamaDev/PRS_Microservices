@@ -96,17 +96,15 @@ public class CreateUserUseCaseImpl implements ICreateUserUseCase {
     @Override
     @Transactional
     public Mono<User> execute(User user, String createdBy) {
-        log.info("Creating user with document: {}", user.getDocumentNumber());
+        log.info("Creando usuario con documento: {}", user.getDocumentNumber());
 
         return validateDocumentNotExists(user.getDocumentNumber())
             .then(validateOrganizationHierarchy(user))
             .then(Mono.fromCallable(() -> {
-                // Validar contacto (regla de negocio en dominio)
                 user.validateContact();
                 return user;
             }))
             .flatMap(validatedUser -> {
-                // Preparar usuario con valores por defecto
                 User userToSave = User.builder()
                     .id(UUID.randomUUID().toString())
                     .organizationId(validatedUser.getOrganizationId())
@@ -130,8 +128,8 @@ public class CreateUserUseCaseImpl implements ICreateUserUseCase {
                 return userRepository.save(userToSave);
             })
             .flatMap(savedUser -> publishEventAndNotify(savedUser, createdBy))
-            .doOnSuccess(u -> log.info("User created successfully: {}", u.getId()))
-            .doOnError(e -> log.error("Error creating user: {}", e.getMessage()));
+            .doOnSuccess(u -> log.info("Usuario creado: {}", u.getId()))
+            .doOnError(e -> log.error("Error creando al usuario: {}", e.getMessage()));
     }
 
     /**
@@ -166,7 +164,7 @@ public class CreateUserUseCaseImpl implements ICreateUserUseCase {
             })
             .onErrorResume(ExternalServiceException.class, e -> {
                 log.warn("Organization service unavailable, skipping validation: {}", e.getMessage());
-                return Mono.empty(); // Continuar sin validar si el servicio no está disponible
+                return Mono.empty();
             });
     }
 
@@ -328,17 +326,14 @@ public class UpdateUserUseCaseImpl implements IUpdateUserUseCase {
         return userRepository.findById(id)
             .switchIfEmpty(Mono.error(new UserNotFoundException(id)))
             .flatMap(existingUser -> {
-                // Validar que el usuario esté activo
                 if (existingUser.isInactive()) {
                     return Mono.error(new BusinessRuleException(
-                        "No se puede actualizar un usuario inactivo. Restáurelo primero."
+                        "No se puede actualizar un usuario inactivo"
                     ));
                 }
 
-                // Detectar campos que cambiaron
                 Map<String, Object> changedFields = detectChanges(existingUser, userData);
 
-                // Aplicar actualizaciones usando método del dominio
                 User updatedUser = existingUser.updateWith(
                     userData.getFirstName(),
                     userData.getLastName(),
@@ -351,8 +346,8 @@ public class UpdateUserUseCaseImpl implements IUpdateUserUseCase {
                 return userRepository.update(updatedUser)
                     .flatMap(saved -> publishUpdateEvent(saved, changedFields, updatedBy));
             })
-            .doOnSuccess(u -> log.info("User updated successfully: {}", u.getId()))
-            .doOnError(e -> log.error("Error updating user: {}", e.getMessage()));
+            .doOnSuccess(u -> log.info("Usuario actualizado: {}", u.getId()))
+            .doOnError(e -> log.error("Error al actualizar usuario: {}", e.getMessage()));
     }
 
     /**
@@ -439,14 +434,12 @@ public class DeleteUserUseCaseImpl implements IDeleteUserUseCase {
         return userRepository.findById(id)
             .switchIfEmpty(Mono.error(new UserNotFoundException(id)))
             .flatMap(user -> {
-                // Validar que el usuario esté activo
                 if (user.isInactive()) {
                     return Mono.error(new BusinessRuleException(
                         "El usuario ya se encuentra inactivo"
                     ));
                 }
 
-                // Usar método del dominio para marcar como eliminado
                 User deletedUser = user.markAsDeleted(deletedBy);
 
                 return userRepository.update(deletedUser)
@@ -650,39 +643,13 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
-    /**
-     * Indica si la operación fue exitosa.
-     */
     private boolean success;
-
-    /**
-     * Mensaje descriptivo de la operación.
-     */
     private String message;
-
-    /**
-     * Datos de la respuesta (solo si success=true).
-     */
     private T data;
-
-    /**
-     * Lista de errores (solo si success=false).
-     */
     private List<ErrorMessage> errors;
-
-    /**
-     * Timestamp de la respuesta.
-     */
     @Builder.Default
     private LocalDateTime timestamp = LocalDateTime.now();
 
-    // ═══════════════════════════════════════════════════════════════
-    // FACTORY METHODS
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Crea respuesta exitosa con datos.
-     */
     public static <T> ApiResponse<T> success(T data, String message) {
         return ApiResponse.<T>builder()
             .success(true)
@@ -691,9 +658,6 @@ public class ApiResponse<T> {
             .build();
     }
 
-    /**
-     * Crea respuesta exitosa solo con mensaje.
-     */
     public static <T> ApiResponse<T> success(String message) {
         return ApiResponse.<T>builder()
             .success(true)
@@ -701,9 +665,6 @@ public class ApiResponse<T> {
             .build();
     }
 
-    /**
-     * Crea respuesta de error con mensaje simple.
-     */
     public static <T> ApiResponse<T> error(String message) {
         return ApiResponse.<T>builder()
             .success(false)
@@ -711,9 +672,6 @@ public class ApiResponse<T> {
             .build();
     }
 
-    /**
-     * Crea respuesta de error con detalle.
-     */
     public static <T> ApiResponse<T> error(String message, ErrorMessage error) {
         return ApiResponse.<T>builder()
             .success(false)
@@ -722,9 +680,6 @@ public class ApiResponse<T> {
             .build();
     }
 
-    /**
-     * Crea respuesta de error con múltiples errores.
-     */
     public static <T> ApiResponse<T> error(String message, List<ErrorMessage> errors) {
         return ApiResponse.<T>builder()
             .success(false)
@@ -757,34 +712,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorMessage {
-
-    /**
-     * Campo que causó el error (para validaciones).
-     */
     private String field;
-
-    /**
-     * Mensaje descriptivo del error.
-     */
     private String message;
-
-    /**
-     * Código único del error.
-     */
     private String errorCode;
-
-    /**
-     * Código HTTP asociado.
-     */
     private Integer status;
 
-    // ═══════════════════════════════════════════════════════════════
-    // FACTORY METHODS
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Crea error de validación de campo.
-     */
     public static ErrorMessage validation(String field, String message, String errorCode) {
         return ErrorMessage.builder()
             .field(field)
@@ -794,9 +726,6 @@ public class ErrorMessage {
             .build();
     }
 
-    /**
-     * Crea error genérico.
-     */
     public static ErrorMessage of(String message, String errorCode, int status) {
         return ErrorMessage.builder()
             .message(message)
@@ -821,55 +750,18 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-/**
- * Wrapper para respuestas paginadas.
- *
- * @param <T> tipo de elementos
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class PageResponse<T> {
-
-    /**
-     * Lista de elementos de la página actual.
-     */
     private List<T> content;
-
-    /**
-     * Número de página actual (0-indexed).
-     */
     private int page;
-
-    /**
-     * Tamaño de página.
-     */
     private int size;
-
-    /**
-     * Total de elementos en todas las páginas.
-     */
     private long totalElements;
-
-    /**
-     * Total de páginas.
-     */
     private int totalPages;
-
-    /**
-     * Indica si es la primera página.
-     */
     private boolean first;
-
-    /**
-     * Indica si es la última página.
-     */
     private boolean last;
-
-    // ═══════════════════════════════════════════════════════════════
-    // FACTORY METHOD
-    // ═══════════════════════════════════════════════════════════════
 
     public static <T> PageResponse<T> of(List<T> content, int page, int size, long totalElements) {
         int totalPages = (int) Math.ceil((double) totalElements / size);
@@ -1065,27 +957,11 @@ import pe.edu.vallegrande.vgmsusers.domain.models.valueobjects.DocumentType;
 import pe.edu.vallegrande.vgmsusers.domain.models.valueobjects.Role;
 import pe.edu.vallegrande.vgmsusers.infrastructure.persistence.entities.UserEntity;
 
-/**
- * Mapper para conversiones entre capas.
- *
- * <p>Convierte entre:</p>
- * <ul>
- *   <li>Request DTO → Domain Model</li>
- *   <li>Domain Model → Response DTO</li>
- *   <li>Domain Model → Entity (persistencia)</li>
- *   <li>Entity → Domain Model</li>
- * </ul>
- */
 @Component
 public class UserMapper {
 
-    // ═══════════════════════════════════════════════════════════════
-    // REQUEST → DOMAIN
-    // ═══════════════════════════════════════════════════════════════
+    // REQUEST -> DOMAIN
 
-    /**
-     * Convierte CreateUserRequest a modelo de dominio.
-     */
     public User toModel(CreateUserRequest request) {
         return User.builder()
             .organizationId(request.getOrganizationId())
@@ -1102,9 +978,6 @@ public class UserMapper {
             .build();
     }
 
-    /**
-     * Convierte UpdateUserRequest a modelo de dominio (parcial).
-     */
     public User toModel(UpdateUserRequest request) {
         return User.builder()
             .firstName(request.getFirstName())
@@ -1115,13 +988,8 @@ public class UserMapper {
             .build();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // DOMAIN → RESPONSE
-    // ═══════════════════════════════════════════════════════════════
+    // DOMAIN -> RESPONSE
 
-    /**
-     * Convierte modelo de dominio a UserResponse.
-     */
     public UserResponse toResponse(User user) {
         return UserResponse.builder()
             .id(user.getId())
@@ -1146,13 +1014,8 @@ public class UserMapper {
             .build();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // DOMAIN ↔ ENTITY
-    // ═══════════════════════════════════════════════════════════════
+    // DOMAIN -> ENTITY
 
-    /**
-     * Convierte modelo de dominio a Entity para persistencia.
-     */
     public UserEntity toEntity(User user) {
         return UserEntity.builder()
             .id(user.getId())

@@ -132,7 +132,7 @@ public class UserRest {
             @Valid @RequestBody CreateUserRequest request,
             @RequestHeader(value = "X-User-Id", defaultValue = "system") String userId
     ) {
-        log.info("POST /users - Creating user with document: {}", request.getDocumentNumber());
+        log.info("POST /users - Creando usuario con documento: {}", request.getDocumentNumber());
 
         return createUserUseCase.execute(userMapper.toModel(request), userId)
             .map(user -> ResponseEntity
@@ -1254,9 +1254,6 @@ import reactor.netty.http.client.HttpClient;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Configuración de WebClient con timeouts.
- */
 @Configuration
 public class WebClientConfig {
 
@@ -1279,7 +1276,6 @@ public class WebClientConfig {
                 .addHandlerLast(new WriteTimeoutHandler(writeTimeout, TimeUnit.MILLISECONDS))
             );
 
-        // Aumentar buffer para respuestas grandes
         ExchangeStrategies strategies = ExchangeStrategies.builder()
             .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
             .build();

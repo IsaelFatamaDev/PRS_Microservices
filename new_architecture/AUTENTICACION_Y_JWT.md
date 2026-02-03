@@ -3,6 +3,7 @@
 ## 1. ❌ TOKENS NO SE ALMACENAN EN BASE DE DATOS
 
 **REGLA ABSOLUTA**:
+
 - Los tokens JWT los genera y valida **Keycloak** únicamente
 - NO se guardan en PostgreSQL, MongoDB, ni ninguna base de datos
 - NO existe tabla `tokens`, `sessions`, ni `credentials`
@@ -23,7 +24,7 @@
   "sub": "uuid-user-keycloak",
   "typ": "Bearer",
   "azp": "jass-backend",
-  
+
   // ✅ CLAIMSCUSTOMIZADOS (Configurados en Keycloak)
   "userId": "uuid-del-user-en-postgres",           // ID del User en vg-ms-users
   "organizationId": "uuid-de-la-organizacion",     // Multi-tenancy
@@ -34,50 +35,68 @@
   "lastName": "Pérez García",
   "documentType": "DNI",
   "documentNumber": "73456789",
-  
+
   // ✅ ROLES (Array, un usuario puede tener múltiples roles)
   "roles": ["CLIENT"],                              // O ["ADMIN"], ["SUPER_ADMIN"], etc.
-  
+
   "realm_access": {
     "roles": ["CLIENT", "offline_access"]
   },
-  
+
   "scope": "profile email",
   "preferred_username": "73456789"
 }
 ```
 
-### 2.2 Extracción de Claims en Gateway
+### 2.2 Headers del Gateway (Simplificado)
 
-El **vg-ms-gateway** extrae estos claims del JWT y los inyecta como headers:
+El **vg-ms-gateway** valida el JWT contra Keycloak y extrae solo los **headers esenciales**:
+
+> **⚠️ IMPORTANTE**: Los microservicios NO validan JWT directamente. Confían en el Gateway porque están en una VPC privada.
+
+#### Headers OBLIGATORIOS
+
+| Header | Descripción | Ejemplo |
+|--------|-------------|----------|
+| `X-User-Id` | ID del usuario en PostgreSQL | `uuid-123-456` |
+| `X-Organization-Id` | ID de la organización (multi-tenant) | `org-uuid-789` |
+| `X-Roles` | Roles separados por coma | `ADMIN,CLIENT` |
+
+#### Headers OPCIONALES
+
+| Header | Descripción | Cuándo usar |
+|--------|-------------|-------------|
+| `X-User-Email` | Email del usuario | Solo si se necesita sin consultar BD |
 
 ```java
-// GatewayApplication.java - Global Filter
+// vg-ms-gateway - GlobalFilter
 @Bean
-public GlobalFilter customHeaderFilter() {
+public GlobalFilter gatewayHeadersFilter() {
     return (exchange, chain) -> {
         ServerHttpRequest request = exchange.getRequest();
-        
+
         // Extraer JWT del header Authorization
         String token = extractToken(request);
         Claims claims = jwtDecoder.parseClaimsJws(token).getBody();
-        
-        // Inyectar headers personalizados
+
+        // Inyectar SOLO headers esenciales
         ServerHttpRequest modifiedRequest = request.mutate()
             .header("X-User-Id", claims.get("userId", String.class))
             .header("X-Organization-Id", claims.get("organizationId", String.class))
-            .header("X-Username", claims.get("username", String.class))
-            .header("X-Role", extractPrimaryRole(claims))              // Rol principal
-            .header("X-Roles", String.join(",", extractAllRoles(claims)))  // Todos los roles
-            .header("X-Document-Number", claims.get("documentNumber", String.class))
-            .header("X-First-Name", claims.get("firstName", String.class))
-            .header("X-Last-Name", claims.get("lastName", String.class))
+            .header("X-Roles", String.join(",", extractAllRoles(claims)))
             .build();
-        
+
         return chain.filter(exchange.mutate().request(modifiedRequest).build());
     };
 }
 ```
+
+#### ¿Por qué NO pasar firstName, lastName, documentNumber?
+
+1. **Datos siempre actualizados**: Si actualizas el nombre en BD, el token sigue con el viejo hasta que expire
+2. **Headers ligeros**: ~100 bytes vs ~500 bytes por request
+3. **Sin duplicación**: Los datos ya están en la BD del microservicio
+4. **Menor acoplamiento**: El microservicio decide qué datos necesita
 
 ---
 
@@ -90,25 +109,25 @@ public GlobalFilter customHeaderFilter() {
 public class User extends BaseEntity {
     // Identificadores
     private String userCode;              // ÚNICO: DNI o código generado
-    
+
     // Datos Personales (OBLIGATORIOS)
     private String firstName;             // Nombres
     private String lastName;              // Apellidos completos
     private DocumentType documentType;    // DNI, RUC, CE
     private String documentNumber;        // Número de documento (ÚNICO)
-    
+
     // Contacto (OPCIONALES - Para zonas rurales)
     private String email;                 // ✅ OPCIONAL (puede ser null)
     private String phone;                 // ✅ OPCIONAL (puede ser null)
-    
+
     // Ubicación
     private String address;
     private String zoneId;                // Referencia a vg-ms-organizations
     private String streetId;              // Referencia a vg-ms-organizations
-    
+
     // Seguridad y Rol
     private Role role;                    // SUPER_ADMIN, ADMIN, CLIENT
-    
+
     // Auditoría y Estado (de BaseEntity)
     // - id, organizationId, recordStatus
     // - createdAt, createdBy, updatedAt, updatedBy
@@ -124,11 +143,11 @@ public record CreateUserRequest(
     @NotBlank String lastName,
     @NotNull DocumentType documentType,
     @NotBlank String documentNumber,
-    
+
     // ✅ OPCIONALES (Sin @NotBlank)
     String email,                          // Puede ser null o vacío
     String phone,                          // Puede ser null o vacío
-    
+
     @NotBlank String address,
     @NotBlank String zoneId,
     String streetId,                       // Opcional si no tiene calle asignada
@@ -137,7 +156,7 @@ public record CreateUserRequest(
     // Validación personalizada
     public void validate() {
         // Al menos email O phone debe estar presente
-        if ((email == null || email.isBlank()) && 
+        if ((email == null || email.isBlank()) &&
             (phone == null || phone.isBlank())) {
             throw new BusinessRuleException(
                 "El usuario debe tener al menos un email o teléfono para contacto"
@@ -217,21 +236,21 @@ public record CreateUserRequest(
 ```java
 @Service
 public class CreateUserUseCaseImpl implements ICreateUserUseCase {
-    
+
     private final IUserRepository userRepository;
     private final IAuthenticationClient authenticationClient;
     private final IOrganizationClient organizationClient;
-    
+
     @Override
     public Mono<User> execute(CreateUserRequest request) {
         return Mono.deferContextual(ctx -> {
             String adminUserId = ctx.get("userId");
             String organizationId = ctx.get("organizationId");
-            
+
             // 1. Validar que zona/calle existen
             return organizationClient.validateZone(request.zoneId())
                 .then(organizationClient.validateStreet(request.streetId()))
-                
+
                 // 2. Crear usuario en PostgreSQL
                 .then(Mono.defer(() -> {
                     User user = new User();
@@ -251,10 +270,10 @@ public class CreateUserUseCaseImpl implements ICreateUserUseCase {
                     user.setRecordStatus(RecordStatus.ACTIVE);
                     user.setCreatedAt(LocalDateTime.now());
                     user.setCreatedBy(adminUserId);
-                    
+
                     return userRepository.save(user);
                 }))
-                
+
                 // 3. Crear credenciales en Keycloak
                 .flatMap(user -> authenticationClient.createKeycloakUser(
                     CreateKeycloakUserRequest.builder()

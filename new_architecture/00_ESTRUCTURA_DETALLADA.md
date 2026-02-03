@@ -744,13 +744,15 @@ vg-ms-users/
 │   ├── java/pe/edu/vallegrande/vgmsusers/
 │   │   ├── domain/
 │   │   │   ├── models/
-│   │   │   │   ├── User.java                           → [CLASS] extends BaseEntity
+│   │   │   │   ├── User.java                           → [CLASS] Modelo de dominio rico
 │   │   │   │   │                                         Campos: firstName, lastName,
 │   │   │   │   │                                         documentType, documentNumber,
 │   │   │   │   │                                         email (OPCIONAL), phone (OPCIONAL),
 │   │   │   │   │                                         address, zoneId, streetId, role
+│   │   │   │   │                                         Métodos: validateContact(), getFullName(),
+│   │   │   │   │                                         isActive(), isAdmin(), markAsDeleted()
 │   │   │   │   └── valueobjects/
-│   │   │   │       ├── Role.java                       → [ENUM] SUPER_ADMIN, ADMIN, CLIENT
+│   │   │   │       ├── Role.java                       → [ENUM] SUPER_ADMIN, ADMIN, CLIENT, OPERATOR
 │   │   │   │       ├── DocumentType.java               → [ENUM] DNI, RUC, CE
 │   │   │   │       └── RecordStatus.java               → [ENUM] ACTIVE, INACTIVE
 │   │   │   ├── ports/
@@ -766,8 +768,14 @@ vg-ms-users/
 │   │   │   │       ├── IAuthenticationClient.java      → [INTERFACE] Crear usuario en Keycloak
 │   │   │   │       ├── IOrganizationClient.java        → [INTERFACE] Validar org/zona/calle
 │   │   │   │       ├── INotificationClient.java        → [INTERFACE] Enviar WhatsApp
-│   │   │   │       └── IUserEventPublisher.java        → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IUserEventPublisher.java        → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── UserAuthorizationService.java       → [CLASS] Reglas de autorización
+│   │   │   │                                             - validateCanCreateUserWithRole()
+│   │   │   │                                             - validateCanAccessOrganization()
+│   │   │   │                                             - canViewAllOrganizations()
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -798,7 +806,7 @@ vg-ms-users/
 │   │   │   │       └── UserResponse.java               → [CLASS] DTO
 │   │   │   ├── mappers/
 │   │   │   │   └── UserMapper.java                     → [CLASS] @Component
-│   │   │   └── events/                                 → ⚠️ DTOs DE EVENTOS (solo clases de datos)
+│   │   │   └── events/
 │   │   │       ├── UserCreatedEvent.java               → [CLASS] Evento creación
 │   │   │       ├── UserUpdatedEvent.java               → [CLASS] Evento actualización
 │   │   │       ├── UserDeletedEvent.java               → [CLASS] Evento eliminación LÓGICA
@@ -818,9 +826,9 @@ vg-ms-users/
 │   │       │       │   ├── AuthenticationClientImpl.java → [CLASS] @Component
 │   │       │       │   ├── OrganizationClientImpl.java → [CLASS] @Component
 │   │       │       │   └── NotificationClientImpl.java → [CLASS] @Component
-│   │       │       └── messaging/                      → ⚠️ IMPLEMENTACIÓN DEL PUBLISHER
+│   │       │       └── messaging/
 │   │       │           └── UserEventPublisherImpl.java → [CLASS] Implementa IUserEventPublisher
-│   │       ├── messaging/                              → ⚠️ LISTENERS DE EVENTOS EXTERNOS
+│   │       ├── messaging/
 │   │       │   └── listeners/
 │   │       │       └── (vacío - users no escucha eventos externos)
 │   │       ├── persistence/
@@ -828,18 +836,31 @@ vg-ms-users/
 │   │       │   │   └── UserEntity.java                 → [CLASS] @Table("users")
 │   │       │   └── repositories/
 │   │       │       └── UserR2dbcRepository.java        → [INTERFACE] R2dbcRepository
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   │                                         userId, organizationId, roles, email
+│   │       │   │                                         Métodos: isSuperAdmin(), isAdmin(),
+│   │       │   │                                         canCreateRole(), belongsToOrganization()
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   │                                         Extrae X-User-Id, X-Organization-Id,
+│   │       │   │                                         X-Roles de los headers HTTP
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   │                                         Almacena AuthenticatedUser en
+│   │       │   │                                         el contexto reactivo (Reactor Context)
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] @Component
+│   │       │                                             Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── R2dbcConfig.java                    → [CLASS] @Configuration
 │   │           ├── WebClientConfig.java                → [CLASS] @Configuration
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           └── RequestContextFilter.java           → [CLASS] @Component WebFilter
 │   │
 │   └── resources/
 │       ├── application.yml                             → Base común
 │       ├── application-dev.yml                         → Docker local
-│       ├── application-prod.yml                        → Docker Compose VPC
+│       ├── application-prod.yml                        → Docker Compose VPC (sin config JWT)
 │       └── db/migration/
 │           └── V1__create_users_table.sql              → SQL Script
 │
@@ -870,8 +891,9 @@ vg-ms-authentication/
 │   │   │   │   │   └── IRefreshTokenUseCase.java       → [INTERFACE]
 │   │   │   │   └── out/
 │   │   │   │       ├── IKeycloakClient.java            → [INTERFACE] Admin API Keycloak
-│   │   │   │       └── IUserServiceClient.java         → [INTERFACE] WebClient a vg-ms-users
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IUserServiceClient.java         → [INTERFACE] WebClient a vg-ms-users
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -922,12 +944,17 @@ vg-ms-authentication/
 │   │       │           │                                 Escucha: user.deleted → Deshabilitar en Keycloak
 │   │       │           │                                 Escucha: user.restored → Habilitar en Keycloak
 │   │       │           │                                 Escucha: user.purged → Eliminar de Keycloak
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── KeycloakConfig.java                 → [CLASS] Keycloak Admin Client
 │   │           ├── WebClientConfig.java                → [CLASS]
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration (Queues y Bindings)
 │   │           ├── Resilience4jConfig.java             → [CLASS] Circuit Breaker
-│   │           └── SecurityConfig.java                 → [CLASS]
+│   │           └── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │
 │   └── resources/
 │       ├── application.yml
@@ -979,8 +1006,11 @@ vg-ms-organizations/
 │   │   │   │       ├── IOrganizationRepository.java    → [INTERFACE] Reactive
 │   │   │   │       ├── IZoneRepository.java            → [INTERFACE]
 │   │   │   │       ├── IStreetRepository.java          → [INTERFACE]
-│   │   │   │       └── IOrganizationEventPublisher.java → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IOrganizationEventPublisher.java → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── OrganizationAuthorizationService.java → [CLASS] Reglas de autorización
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -1053,10 +1083,15 @@ vg-ms-organizations/
 │   │       │       ├── StreetMongoRepository.java      → [INTERFACE]
 │   │       │       ├── FareMongoRepository.java        → [INTERFACE]
 │   │       │       └── ParameterMongoRepository.java   → [INTERFACE]
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── MongoConfig.java                    → [CLASS] @Configuration
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           └── RequestContextFilter.java           → [CLASS] @Component
 │   │
 │   └── resources/
@@ -1125,8 +1160,11 @@ vg-ms-commercial-operations/
 │   │   │   │       ├── IUserServiceClient.java         → [INTERFACE] WebClient a vg-ms-users
 │   │   │   │       ├── IInfrastructureClient.java      → [INTERFACE] WebClient a vg-ms-infrastructure
 │   │   │   │       ├── INotificationClient.java        → [INTERFACE] WhatsApp/Email
-│   │   │   │       └── ICommercialEventPublisher.java  → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── ICommercialEventPublisher.java  → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── CommercialAuthorizationService.java → [CLASS] Reglas de autorización
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -1249,9 +1287,14 @@ vg-ms-commercial-operations/
 │   │       │       ├── ServiceCutR2dbcRepository.java  → [INTERFACE]
 │   │       │       ├── PettyCashR2dbcRepository.java   → [INTERFACE]
 │   │       │       └── PettyCashMovementR2dbcRepository.java → [INTERFACE]
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── R2dbcConfig.java                    → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration
 │   │           ├── WebClientConfig.java                → [CLASS] @Configuration
@@ -1306,8 +1349,11 @@ vg-ms-water-quality/
 │   │   │   │   └── out/
 │   │   │   │       ├── ITestingPointRepository.java    → [INTERFACE]
 │   │   │   │       ├── IQualityTestRepository.java     → [INTERFACE]
-│   │   │   │       └── IWaterQualityEventPublisher.java → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IWaterQualityEventPublisher.java → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── WaterQualityAuthorizationService.java → [CLASS] Reglas de autorización
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -1377,12 +1423,17 @@ vg-ms-water-quality/
 │   │       │   └── repositories/
 │   │       │       ├── TestingPointMongoRepository.java → [INTERFACE]
 │   │       │       └── QualityTestMongoRepository.java → [INTERFACE]
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── MongoConfig.java                    → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration
-│   │           └── RequestContextFilter.java           → [CLASS] @Component (Lee headers)
+│   │           └── RequestContextFilter.java           → [CLASS] @Component
 │   │
 │   └── resources/
 │       ├── application.yml
@@ -1426,8 +1477,11 @@ vg-ms-distribution/
 │   │   │   │       ├── IProgramRepository.java         → [INTERFACE]
 │   │   │   │       ├── IRouteRepository.java           → [INTERFACE]
 │   │   │   │       ├── IScheduleRepository.java        → [INTERFACE]
-│   │   │   │       └── IDistributionEventPublisher.java → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IDistributionEventPublisher.java → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── DistributionAuthorizationService.java → [CLASS] Reglas de autorización
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -1505,12 +1559,17 @@ vg-ms-distribution/
 │   │       │       ├── DistributionProgramMongoRepository.java → [INTERFACE]
 │   │       │       ├── DistributionRouteMongoRepository.java → [INTERFACE]
 │   │       │       └── DistributionScheduleMongoRepository.java → [INTERFACE]
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── MongoConfig.java                    → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration
-│   │           └── RequestContextFilter.java           → [CLASS] @Component (Lee headers)
+│   │           └── RequestContextFilter.java           → [CLASS] @Component
 │   │
 │   └── resources/
 │       ├── application.yml
@@ -1565,8 +1624,11 @@ vg-ms-inventory-purchases/
 │   │   │   │       ├── IMaterialRepository.java        → [INTERFACE]
 │   │   │   │       ├── IPurchaseRepository.java        → [INTERFACE]
 │   │   │   │       ├── IInventoryMovementRepository.java → [INTERFACE]
-│   │   │   │       └── IInventoryEventPublisher.java   → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IInventoryEventPublisher.java   → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── InventoryAuthorizationService.java  → [CLASS] Reglas de autorización
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -1672,12 +1734,17 @@ vg-ms-inventory-purchases/
 │   │       │       ├── PurchaseR2dbcRepository.java    → [INTERFACE]
 │   │       │       ├── PurchaseDetailR2dbcRepository.java → [INTERFACE]
 │   │       │       └── InventoryMovementR2dbcRepository.java → [INTERFACE]
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── R2dbcConfig.java                    → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration
-│   │           └── RequestContextFilter.java           → [CLASS] @Component (Lee headers)
+│   │           └── RequestContextFilter.java           → [CLASS] @Component
 │   │
 │   └── resources/
 │       ├── application.yml
@@ -1738,8 +1805,11 @@ vg-ms-claims-incidents/
 │   │   │   │       ├── IIncidentRepository.java        → [INTERFACE]
 │   │   │   │       ├── IUserServiceClient.java         → [INTERFACE] WebClient a vg-ms-users
 │   │   │   │       ├── IInfrastructureClient.java      → [INTERFACE] WebClient a vg-ms-infrastructure
-│   │   │   │       └── IClaimsEventPublisher.java      → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IClaimsEventPublisher.java      → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── ClaimsAuthorizationService.java     → [CLASS] Reglas de autorización
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -1831,12 +1901,17 @@ vg-ms-claims-incidents/
 │   │       │       ├── IncidentMongoRepository.java    → [INTERFACE]
 │   │       │       ├── IncidentTypeMongoRepository.java → [INTERFACE]
 │   │       │       └── IncidentResolutionMongoRepository.java → [INTERFACE]
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── MongoConfig.java                    → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration
-│   │           └── RequestContextFilter.java           → [CLASS] @Component (Lee headers)
+│   │           └── RequestContextFilter.java           → [CLASS] @Component
 │   │
 │   └── resources/
 │       ├── application.yml
@@ -1880,8 +1955,11 @@ vg-ms-infrastructure/
 │   │   │   │       ├── IWaterBoxRepository.java        → [INTERFACE]
 │   │   │   │       ├── IWaterBoxAssignmentRepository.java → [INTERFACE]
 │   │   │   │       ├── IWaterBoxTransferRepository.java → [INTERFACE]
-│   │   │   │       └── IInfrastructureEventPublisher.java → [INTERFACE] RabbitMQ
-│   │   │   └── exceptions/                             → ⚠️ UBICACIÓN CORRECTA
+│   │   │   │       ├── IInfrastructureEventPublisher.java → [INTERFACE] RabbitMQ
+│   │   │   │       └── ISecurityContext.java           → [INTERFACE] Obtener usuario autenticado
+│   │   │   ├── services/                               → ⚠️ SERVICIOS DE DOMINIO
+│   │   │   │   └── InfrastructureAuthorizationService.java → [CLASS] Reglas de autorización
+│   │   │   └── exceptions/
 │   │   │       ├── DomainException.java                → [ABSTRACT] Clase base
 │   │   │       ├── NotFoundException.java              → [CLASS] HTTP 404
 │   │   │       ├── BusinessRuleException.java          → [CLASS] HTTP 400
@@ -1970,9 +2048,14 @@ vg-ms-infrastructure/
 │   │       │       ├── WaterBoxR2dbcRepository.java    → [INTERFACE]
 │   │       │       ├── WaterBoxAssignmentR2dbcRepository.java → [INTERFACE]
 │   │       │       └── WaterBoxTransferR2dbcRepository.java → [INTERFACE]
+│   │       ├── security/                               → ⚠️ SEGURIDAD (Headers del Gateway)
+│   │       │   ├── AuthenticatedUser.java              → [CLASS] DTO del usuario autenticado
+│   │       │   ├── GatewayHeadersExtractor.java        → [CLASS] @Component
+│   │       │   ├── GatewayHeadersFilter.java           → [CLASS] @Component WebFilter
+│   │       │   └── SecurityContextAdapter.java         → [CLASS] Implementa ISecurityContext
 │   │       └── config/
 │   │           ├── R2dbcConfig.java                    → [CLASS] @Configuration
-│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration
+│   │           ├── SecurityConfig.java                 → [CLASS] @Configuration (sin OAuth2)
 │   │           ├── RabbitMQConfig.java                 → [CLASS] @Configuration
 │   │           ├── Resilience4jConfig.java             → [CLASS] @Configuration
 │   │           └── RequestContextFilter.java           → [CLASS] @Component
