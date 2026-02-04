@@ -918,8 +918,8 @@ vg-ms-authentication/
 │   │   │   │   │   └── RefreshTokenRequest.java        → [CLASS]
 │   │   │   │   └── response/
 │   │   │   │       └── LoginResponse.java              → [CLASS] { accessToken, refreshToken, expiresIn }
-│   │   │   ├── security/
-│   │   │   │   └── JwtValidator.java                   → [CLASS] @Component
+│   │   │   ├── mappers/
+│   │   │   │   └── AuthMapper.java                     → [CLASS] @Component (mapeo DTOs)
 │   │   │   └── events/                                 → ⚠️ SOLO EVENTOS EXTERNOS (no publica)
 │   │   │       └── external/                           → DTOs de eventos que ESCUCHA
 │   │   │           ├── UserCreatedEvent.java           → [CLASS] DTO del evento externo
