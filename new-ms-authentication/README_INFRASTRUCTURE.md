@@ -71,17 +71,9 @@ infrastructure/
 ```java
 package pe.edu.vallegrande.vgmsauthentication.infrastructure.adapters.in.rest;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.vallegrande.vgmsauthentication.application.dto.request.*;
@@ -110,7 +102,6 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "Operaciones de autenticación OAuth2/OIDC")
 public class AuthRest {
 
     private final ILoginUseCase loginUseCase;
@@ -118,214 +109,69 @@ public class AuthRest {
     private final ILogoutUseCase logoutUseCase;
     private final IValidateTokenUseCase validateTokenUseCase;
 
-    // ═══════════════════════════════════════════════════════════════
-    // LOGIN
-    // ═══════════════════════════════════════════════════════════════
-
     @PostMapping("/login")
-    @Operation(
-        summary = "Iniciar sesión",
-        description = "Autentica un usuario contra Keycloak usando OAuth2 Password Grant"
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "200",
-            description = "Login exitoso",
-            content = @Content(schema = @Schema(implementation = LoginResponse.class))
-        ),
-        @ApiResponse(
-            responseCode = "401",
-            description = "Credenciales inválidas"
-        ),
-        @ApiResponse(
-            responseCode = "503",
-            description = "Keycloak no disponible"
-        )
-    })
-    public Mono<ResponseEntity<LoginResponse>> login(
-            @Valid @RequestBody LoginRequest request
-    ) {
+    public Mono<ResponseEntity<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         log.info("Login request for user: {}", request.getUsername());
-
         return loginUseCase.execute(AuthMapper.toCredentials(request))
             .map(AuthMapper::toLoginResponse)
             .map(ResponseEntity::ok);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // REFRESH TOKEN
-    // ═══════════════════════════════════════════════════════════════
-
     @PostMapping("/refresh")
-    @Operation(
-        summary = "Refrescar token",
-        description = "Obtiene un nuevo access token usando el refresh token"
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "200",
-            description = "Token refrescado",
-            content = @Content(schema = @Schema(implementation = TokenResponse.class))
-        ),
-        @ApiResponse(
-            responseCode = "401",
-            description = "Refresh token expirado o inválido"
-        )
-    })
-    public Mono<ResponseEntity<TokenResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request
-    ) {
+    public Mono<ResponseEntity<TokenResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         log.debug("Refresh token request");
-
         return refreshTokenUseCase.execute(request.getRefreshToken(), request.getClientId())
             .map(AuthMapper::toTokenResponse)
             .map(ResponseEntity::ok);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // LOGOUT
-    // ═══════════════════════════════════════════════════════════════
-
     @PostMapping("/logout")
-    @Operation(
-        summary = "Cerrar sesión",
-        description = "Invalida los tokens del usuario en Keycloak"
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "204",
-            description = "Logout exitoso"
-        )
-    })
-    public Mono<ResponseEntity<Void>> logout(
-            @Valid @RequestBody LogoutRequest request
-    ) {
+    public Mono<ResponseEntity<Void>> logout(@Valid @RequestBody LogoutRequest request) {
         log.info("Logout request");
-
         return logoutUseCase.execute(request.getRefreshToken(), request.getClientId())
             .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 
     @PostMapping("/logout/token")
-    @Operation(
-        summary = "Cerrar sesión con access token",
-        description = "Cierra sesión usando el access token del header Authorization"
-    )
-    public Mono<ResponseEntity<Void>> logoutWithAccessToken(
-            @Parameter(description = "Bearer token")
-            @RequestHeader("Authorization") String authorization
-    ) {
+    public Mono<ResponseEntity<Void>> logoutWithAccessToken(@RequestHeader("Authorization") String authorization) {
         String accessToken = extractToken(authorization);
         log.info("Logout request with access token");
-
         return logoutUseCase.executeWithAccessToken(accessToken)
             .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // VALIDATE TOKEN
-    // ═══════════════════════════════════════════════════════════════
-
     @GetMapping("/validate")
-    @Operation(
-        summary = "Validar token",
-        description = "Verifica si el access token es válido"
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "200",
-            description = "Token válido",
-            content = @Content(schema = @Schema(implementation = UserInfoResponse.class))
-        ),
-        @ApiResponse(
-            responseCode = "401",
-            description = "Token inválido o expirado"
-        )
-    })
-    public Mono<ResponseEntity<UserInfoResponse>> validateToken(
-            @Parameter(description = "Bearer token")
-            @RequestHeader("Authorization") String authorization
-    ) {
+    public Mono<ResponseEntity<UserInfoResponse>> validateToken(@RequestHeader("Authorization") String authorization) {
         String accessToken = extractToken(authorization);
         log.debug("Validate token request");
-
         return validateTokenUseCase.execute(accessToken)
             .map(AuthMapper::toUserInfoResponse)
             .map(ResponseEntity::ok);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // USER INFO
-    // ═══════════════════════════════════════════════════════════════
-
     @GetMapping("/userinfo")
-    @Operation(
-        summary = "Obtener información del usuario",
-        description = "Retorna información del usuario autenticado"
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "200",
-            description = "Información del usuario",
-            content = @Content(schema = @Schema(implementation = UserInfoResponse.class))
-        ),
-        @ApiResponse(
-            responseCode = "401",
-            description = "No autenticado"
-        )
-    })
-    public Mono<ResponseEntity<UserInfoResponse>> getUserInfo(
-            @Parameter(description = "Bearer token")
-            @RequestHeader("Authorization") String authorization
-    ) {
+    public Mono<ResponseEntity<UserInfoResponse>> getUserInfo(@RequestHeader("Authorization") String authorization) {
         String accessToken = extractToken(authorization);
-
         return validateTokenUseCase.getUserInfo(accessToken)
             .map(AuthMapper::toUserInfoResponse)
             .map(ResponseEntity::ok);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // INTROSPECT (RFC 7662)
-    // ═══════════════════════════════════════════════════════════════
-
     @PostMapping("/introspect")
-    @Operation(
-        summary = "Introspección de token",
-        description = "Endpoint de introspección según RFC 7662"
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "200",
-            description = "Resultado de introspección",
-            content = @Content(schema = @Schema(implementation = IntrospectResponse.class))
-        )
-    })
     public Mono<ResponseEntity<IntrospectResponse>> introspect(
             @RequestParam String token,
             @RequestParam(defaultValue = "jass-web-client") String clientId,
-            @RequestParam(required = false) String clientSecret
-    ) {
+            @RequestParam(required = false) String clientSecret) {
         log.debug("Introspect request");
-
         return validateTokenUseCase.introspect(token, clientId, clientSecret)
             .map(AuthMapper::toIntrospectResponse)
             .map(ResponseEntity::ok);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // HEALTH CHECK
-    // ═══════════════════════════════════════════════════════════════
-
     @GetMapping("/health")
-    @Operation(summary = "Health check", description = "Verifica que el servicio esté activo")
     public Mono<ResponseEntity<String>> health() {
         return Mono.just(ResponseEntity.ok("OK"));
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════════════════════════
 
     private String extractToken(String authorization) {
         if (authorization != null && authorization.startsWith("Bearer ")) {
