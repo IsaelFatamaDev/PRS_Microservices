@@ -383,10 +383,10 @@ public class LoginRequest {
 
     /**
      * ID del cliente OAuth2.
-     * Por defecto: "jass-web-client"
+     * Por defecto: "jass-users-service"
      */
     @Builder.Default
-    private String clientId = "jass-web-client";
+    private String clientId = "jass-users-service";
 
     /**
      * Recordar sesión (afecta duración del refresh token).
@@ -431,7 +431,7 @@ public class RefreshTokenRequest {
      * ID del cliente OAuth2.
      */
     @Builder.Default
-    private String clientId = "jass-web-client";
+    private String clientId = "jass-users-service";
 }
 ```
 
@@ -468,7 +468,7 @@ public class LogoutRequest {
      * ID del cliente OAuth2.
      */
     @Builder.Default
-    private String clientId = "jass-web-client";
+    private String clientId = "jass-users-service";
 }
 ```
 

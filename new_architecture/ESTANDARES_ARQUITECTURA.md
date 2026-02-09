@@ -22,7 +22,7 @@ public abstract class BaseEntity {
     protected String createdBy;             // userId que creó
     protected LocalDateTime updatedAt;      // Auditoría
     protected String updatedBy;             // userId que actualizó
-    
+
     // Getters, Setters, equals, hashCode
 }
 ```
@@ -53,7 +53,7 @@ public class ApiResponse<T> {
     private T data;
     private LocalDateTime timestamp;
     private String path;
-    
+
     // Constructors, Getters, Setters
 }
 ```
@@ -74,7 +74,7 @@ public class ErrorMessage {
     private List<String> details;
     private LocalDateTime timestamp;
     private String path;
-    
+
     // Constructors, Getters, Setters
 }
 ```
@@ -85,7 +85,8 @@ public class ErrorMessage {
 
 ### 2.1 ❌ NO SE GUARDAN PASSWORDS EN BASE DE DATOS
 
-**REGLA ABSOLUTA**: 
+**REGLA ABSOLUTA**:
+
 - **vg-ms-authentication** NO guarda passwords
 - La autenticación se delega 100% a **Keycloak**
 - vg-ms-authentication es un **PROXY** que:
@@ -118,7 +119,7 @@ public class ErrorMessage {
 keycloak:
   auth-server-url: http://keycloak:8080
   realm: jass-digital
-  resource: jass-backend
+  resource: jass-users-service
   credentials:
     secret: ${KEYCLOAK_CLIENT_SECRET}
   admin:
@@ -134,7 +135,7 @@ keycloak:
 
 **REGLA**: Solo usar REST cuando es **ESTRICTAMENTE NECESARIO** validar datos en tiempo real.
 
-#### Servicios que SÍ usan WebClient + Circuit Breaker:
+#### Servicios que SÍ usan WebClient + Circuit Breaker
 
 | Servicio Origen     | Servicio Destino      | Propósito                                    | Circuit Breaker |
 |---------------------|-----------------------|----------------------------------------------|-----------------|
@@ -143,7 +144,7 @@ keycloak:
 | vg-ms-users         | vg-ms-notification    | Enviar WhatsApp bienvenida                   | ✅ SÍ           |
 | vg-ms-infrastructure| vg-ms-payments        | Validar que usuario NO tiene deuda           | ✅ SÍ           |
 
-#### Servicios que NO usan WebClient (solo headers):
+#### Servicios que NO usan WebClient (solo headers)
 
 - ✅ vg-ms-payments
 - ✅ vg-ms-water-quality
@@ -175,7 +176,7 @@ resilience4j:
         # ... misma config
       notificationService:
         # ... misma config
-        
+
   retry:
     instances:
       organizationService:
@@ -187,6 +188,7 @@ resilience4j:
 ```
 
 **Archivos necesarios**:
+
 ```
 infrastructure/
 └── config/
@@ -198,7 +200,7 @@ infrastructure/
 
 **REGLA**: Usar eventos para notificaciones y propagación de cambios NO críticos.
 
-#### Eventos Publicados:
+#### Eventos Publicados
 
 | Evento                     | Publisher              | Subscribers                          |
 |----------------------------|------------------------|--------------------------------------|
@@ -209,6 +211,7 @@ infrastructure/
 | QualityTestFailedEvent     | vg-ms-water-quality    | vg-ms-notification, vg-ms-claims     |
 
 **Archivos necesarios**:
+
 ```
 infrastructure/
 └── config/
@@ -234,17 +237,17 @@ public class RequestContextFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
-        
+
         String userId = request.getHeaders().getFirst("X-User-Id");
         String username = request.getHeaders().getFirst("X-Username");
         String role = request.getHeaders().getFirst("X-Role");
         String organizationId = request.getHeaders().getFirst("X-Organization-Id");
-        
+
         // Validar que organizationId existe (Multi-tenancy)
         if (organizationId == null || organizationId.isBlank()) {
             return Mono.error(new UnauthorizedException("Missing organization context"));
         }
-        
+
         // Guardar en context para uso en todo el request
         return chain.filter(exchange)
             .contextWrite(ctx -> ctx
@@ -280,7 +283,7 @@ public class Payment extends BaseEntity {
     // Campos específicos del dominio
     private String paymentCode;
     private BigDecimal amount;
-    
+
     // BaseEntity ya provee:
     // - id
     // - organizationId (Multi-tenancy)
@@ -294,13 +297,13 @@ public class Payment extends BaseEntity {
 ```java
 @Service
 public class CreatePaymentUseCaseImpl implements ICreatePaymentUseCase {
-    
+
     @Override
     public Mono<Payment> execute(CreatePaymentRequest request) {
         return Mono.deferContextual(ctx -> {
             String userId = ctx.get("userId");
             String organizationId = ctx.get("organizationId");
-            
+
             Payment payment = new Payment();
             payment.setId(UUID.randomUUID().toString());
             payment.setOrganizationId(organizationId);
@@ -308,7 +311,7 @@ public class CreatePaymentUseCaseImpl implements ICreatePaymentUseCase {
             payment.setCreatedAt(LocalDateTime.now());
             payment.setCreatedBy(userId);
             // ... resto de lógica
-            
+
             return paymentRepository.save(payment);
         });
     }
@@ -331,12 +334,12 @@ CREATE TABLE users (
     created_by          UUID,
     updated_at          TIMESTAMP,
     updated_by          UUID,
-    
+
     -- Campos específicos
     user_code           VARCHAR(50) UNIQUE NOT NULL,
     first_name          VARCHAR(100) NOT NULL,
     -- ...
-    
+
     CONSTRAINT check_record_status CHECK (record_status IN ('ACTIVE', 'INACTIVE'))
 );
 
@@ -359,7 +362,7 @@ CREATE INDEX idx_users_created_at ON users(created_at);
     "createdBy": "uuid-user",
     "updatedAt": ISODate("2024-01-31T..."),
     "updatedBy": "uuid-user",
-    
+
     // Campos específicos
     "testType": "CHLORINE",
     "result": "APPROVED",

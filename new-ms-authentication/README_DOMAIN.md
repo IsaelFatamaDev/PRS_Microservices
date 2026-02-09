@@ -83,7 +83,7 @@ public class UserCredentials {
 
     /**
      * ID del cliente OAuth2 en Keycloak.
-     * Por defecto: "jass-web-client"
+     * Por defecto: "jass-users-service"
      */
     private String clientId;
 

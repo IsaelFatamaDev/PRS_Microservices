@@ -382,7 +382,7 @@ spring:
 keycloak:
   realm: jass-digital
   auth-server-url: http://localhost:8180
-  resource: jass-backend
+  resource: jass-users-service
   credentials:
     secret: your-dev-client-secret
   admin:
@@ -2006,7 +2006,7 @@ RABBITMQ_SSL_ENABLED=false
 ```env
 KEYCLOAK_URL=https://keycloak.domain.com
 KEYCLOAK_REALM=jass-digital
-KEYCLOAK_CLIENT_ID=jass-backend
+KEYCLOAK_CLIENT_ID=jass-users-service
 KEYCLOAK_CLIENT_SECRET=secret
 KEYCLOAK_ISSUER_URI=https://keycloak.domain.com/realms/jass-digital
 KEYCLOAK_JWK_URI=https://keycloak.domain.com/realms/jass-digital/protocol/openid-connect/certs

@@ -1,0 +1,828 @@
+{
+     "info": {
+          "_postman_id": "jass-flow-complete",
+          "name": "JASS - Flujo Completo de Usuarios y Organizaciones",
+          "description": "Colección para probar el flujo completo del sistema JASS:\n1. Crear SUPER_ADMIN\n2. Crear Organización\n3. Crear Zonas\n4. Crear Calles\n5. Crear ADMIN\n6. ADMIN crea CLIENT\n\n**IMPORTANTE:** Ejecutar las requests en orden y actualizar las variables después de cada respuesta.",
+          "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+     },
+     "variable": [
+          {
+               "key": "auth_base_url",
+               "value": "http://localhost:8082",
+               "type": "string"
+          },
+          {
+               "key": "users_base_url",
+               "value": "http://localhost:8081",
+               "type": "string"
+          },
+          {
+               "key": "organizations_base_url",
+               "value": "http://localhost:8083",
+               "type": "string"
+          },
+          {
+               "key": "access_token",
+               "value": "",
+               "type": "string"
+          },
+          {
+               "key": "refresh_token",
+               "value": "",
+               "type": "string"
+          },
+          {
+               "key": "super_admin_id",
+               "value": "",
+               "type": "string"
+          },
+          {
+               "key": "organization_id",
+               "value": "",
+               "type": "string"
+          },
+          {
+               "key": "zone_id",
+               "value": "",
+               "type": "string"
+          },
+          {
+               "key": "street_id",
+               "value": "",
+               "type": "string"
+          },
+          {
+               "key": "admin_id",
+               "value": "",
+               "type": "string"
+          },
+          {
+               "key": "client_id",
+               "value": "",
+               "type": "string"
+          }
+     ],
+     "item": [
+          {
+               "name": "00. Autenticación",
+               "item": [
+                    {
+                         "name": "0.1 Login SUPER_ADMIN",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 200)  {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('access_token', jsonData.data.access_token);",
+                                             "    pm.collectionVariables.set('refresh_token', jsonData.data.refresh_token);",
+                                             "    console.log('Tokens guardados');",
+                                             "    console.log('Access Token: ' + jsonData.data.access_token);",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"username\": \"super.admin@jass.gob.pe\",\n    \"password\": \"12345678\",\n    \"clientId\": \"jass-users-service\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{auth_base_url}}/api/v1/auth/login",
+                                   "host": [ "{{auth_base_url}}" ],
+                                   "path": [ "api", "v1", "auth", "login" ]
+                              },
+                              "description": "Login con SUPER_ADMIN. Username: super.admin@jass.gob.pe, Password: documentNumber (12345678)"
+                         }
+                    },
+                    {
+                         "name": "0.2 Refresh Token",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 200) {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('access_token', jsonData.data.access_token);",
+                                             "    pm.collectionVariables.set('refresh_token', jsonData.data.refresh_token);",
+                                             "    console.log('Tokens renovados');",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"refreshToken\": \"{{refresh_token}}\",\n    \"clientId\": \"jass-users-service\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{auth_base_url}}/api/v1/auth/refresh",
+                                   "host": [ "{{auth_base_url}}" ],
+                                   "path": [ "api", "v1", "auth", "refresh" ]
+                              },
+                              "description": "Renueva el access token usando el refresh token"
+                         }
+                    },
+                    {
+                         "name": "0.3 Logout",
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"refreshToken\": \"{{refresh_token}}\",\n    \"clientId\": \"jass-users-service\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{auth_base_url}}/api/v1/auth/logout",
+                                   "host": [ "{{auth_base_url}}" ],
+                                   "path": [ "api", "v1", "auth", "logout" ]
+                              },
+                              "description": "Cierra la sesión invalidando el token"
+                         }
+                    }
+               ]
+          },
+          {
+               "name": "01. Setup Inicial",
+               "item": [
+                    {
+                         "name": "1.1 Crear SUPER_ADMIN",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 201) {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('super_admin_id', jsonData.data.id);",
+                                             "    console.log('SUPER_ADMIN ID guardado: ' + jsonData.data.id);",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"firstName\": \"Super\",\n    \"lastName\": \"Admin\",\n    \"documentType\": \"DNI\",\n    \"documentNumber\": \"12345678\",\n    \"email\": \"superadmin@jass.pe\",\n    \"phone\": \"987654321\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users/setup/super-admin",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users", "setup", "super-admin" ]
+                              },
+                              "description": "Crea el SUPER_ADMIN inicial del sistema. NO requiere autenticación. Solo puede existir un SUPER_ADMIN."
+                         }
+                    },
+                    {
+                         "name": "1.2 Verificar SUPER_ADMIN creado",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users/{{super_admin_id}}",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users", "{{super_admin_id}}" ]
+                              },
+                              "description": "Verifica que el SUPER_ADMIN fue creado correctamente"
+                         }
+                    }
+               ]
+          },
+          {
+               "name": "02. Crear Organización",
+               "item": [
+                    {
+                         "name": "2.1 Crear Organización (JASS)",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 201) {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('organization_id', jsonData.data.id);",
+                                             "    console.log('Organization ID guardado: ' + jsonData.data.id);",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationName\": \"JASS San Pedro de Lloc\",\n    \"district\": \"San Pedro de Lloc\",\n    \"province\": \"Pacasmayo\",\n    \"department\": \"La Libertad\",\n    \"address\": \"Calle Principal 123\",\n    \"phone\": \"044123456\",\n    \"email\": \"jass.sanpedro@gmail.com\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/organizations",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "organizations" ]
+                              },
+                              "description": "Crea una nueva organización JASS. Requiere rol SUPER_ADMIN."
+                         }
+                    },
+                    {
+                         "name": "2.2 Listar Organizaciones",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/organizations",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "organizations" ]
+                              },
+                              "description": "Lista todas las organizaciones activas"
+                         }
+                    }
+               ]
+          },
+          {
+               "name": "03. Crear Zonas",
+               "item": [
+                    {
+                         "name": "3.1 Crear Zona Centro",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 201) {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('zone_id', jsonData.data.id);",
+                                             "    console.log('Zone ID guardado: ' + jsonData.data.id);",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   },
+                                   {
+                                        "key": "X-Organization-Id",
+                                        "value": "{{organization_id}}"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationId\": \"{{organization_id}}\",\n    \"zoneName\": \"Zona Centro\",\n    \"description\": \"Zona central del distrito, incluye plaza de armas y alrededores\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/zones",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "zones" ]
+                              },
+                              "description": "Crea una zona para la organización"
+                         }
+                    },
+                    {
+                         "name": "3.2 Crear Zona Norte",
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   },
+                                   {
+                                        "key": "X-Organization-Id",
+                                        "value": "{{organization_id}}"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationId\": \"{{organization_id}}\",\n    \"zoneName\": \"Zona Norte\",\n    \"description\": \"Zona norte del distrito\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/zones",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "zones" ]
+                              },
+                              "description": "Crea otra zona para la organización"
+                         }
+                    },
+                    {
+                         "name": "3.3 Listar Zonas por Organización",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/zones/organization/{{organization_id}}",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "zones", "organization", "{{organization_id}}" ]
+                              },
+                              "description": "Lista todas las zonas de una organización"
+                         }
+                    }
+               ]
+          },
+          {
+               "name": "04. Crear Calles",
+               "item": [
+                    {
+                         "name": "4.1 Crear Calle Jr. Independencia",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 201) {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('street_id', jsonData.data.id);",
+                                             "    console.log('Street ID guardado: ' + jsonData.data.id);",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   },
+                                   {
+                                        "key": "X-Organization-Id",
+                                        "value": "{{organization_id}}"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationId\": \"{{organization_id}}\",\n    \"zoneId\": \"{{zone_id}}\",\n    \"streetType\": \"JR\",\n    \"streetName\": \"Independencia\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/streets",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "streets" ]
+                              },
+                              "description": "Crea una calle en la zona"
+                         }
+                    },
+                    {
+                         "name": "4.2 Crear Calle Av. Grau",
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   },
+                                   {
+                                        "key": "X-Organization-Id",
+                                        "value": "{{organization_id}}"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationId\": \"{{organization_id}}\",\n    \"zoneId\": \"{{zone_id}}\",\n    \"streetType\": \"AV\",\n    \"streetName\": \"Grau\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/streets",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "streets" ]
+                              },
+                              "description": "Crea otra calle en la zona"
+                         }
+                    },
+                    {
+                         "name": "4.3 Listar Calles por Zona",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/streets/zone/{{zone_id}}",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "streets", "zone", "{{zone_id}}" ]
+                              },
+                              "description": "Lista todas las calles de una zona"
+                         }
+                    }
+               ]
+          },
+          {
+               "name": "05. Crear ADMIN",
+               "item": [
+                    {
+                         "name": "5.1 Crear ADMIN para la Organización",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 201) {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('admin_id', jsonData.data.id);",
+                                             "    console.log('Admin ID guardado: ' + jsonData.data.id);",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationId\": \"{{organization_id}}\",\n    \"firstName\": \"Juan\",\n    \"lastName\": \"Pérez García\",\n    \"documentType\": \"DNI\",\n    \"documentNumber\": \"87654321\",\n    \"email\": \"admin.jass@gmail.com\",\n    \"phone\": \"912345678\",\n    \"address\": \"Jr. Independencia 456\",\n    \"zoneId\": \"{{zone_id}}\",\n    \"streetId\": \"{{street_id}}\",\n    \"role\": \"ADMIN\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users" ]
+                              },
+                              "description": "SUPER_ADMIN crea un ADMIN para la organización"
+                         }
+                    },
+                    {
+                         "name": "5.2 Verificar ADMIN creado",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users/{{admin_id}}",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users", "{{admin_id}}" ]
+                              },
+                              "description": "Verifica que el ADMIN fue creado correctamente"
+                         }
+                    }
+               ]
+          },
+          {
+               "name": "06. ADMIN crea usuarios",
+               "item": [
+                    {
+                         "name": "6.1 ADMIN crea CLIENT",
+                         "event": [
+                              {
+                                   "listen": "test",
+                                   "script": {
+                                        "exec": [
+                                             "if (pm.response.code === 201) {",
+                                             "    var jsonData = pm.response.json();",
+                                             "    pm.collectionVariables.set('client_id', jsonData.data.id);",
+                                             "    console.log('Client ID guardado: ' + jsonData.data.id);",
+                                             "}"
+                                        ],
+                                        "type": "text/javascript"
+                                   }
+                              }
+                         ],
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "ADMIN"
+                                   },
+                                   {
+                                        "key": "X-Organization-Id",
+                                        "value": "{{organization_id}}"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationId\": \"{{organization_id}}\",\n    \"firstName\": \"María\",\n    \"lastName\": \"López Sánchez\",\n    \"documentType\": \"DNI\",\n    \"documentNumber\": \"11223344\",\n    \"email\": \"maria.lopez@gmail.com\",\n    \"phone\": \"923456789\",\n    \"address\": \"Av. Grau 789\",\n    \"zoneId\": \"{{zone_id}}\",\n    \"streetId\": \"{{street_id}}\",\n    \"role\": \"CLIENT\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users" ]
+                              },
+                              "description": "El ADMIN crea un CLIENT para su organización"
+                         }
+                    },
+                    {
+                         "name": "6.2 ADMIN crea OPERATOR",
+                         "request": {
+                              "method": "POST",
+                              "header": [
+                                   {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                   },
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "ADMIN"
+                                   },
+                                   {
+                                        "key": "X-Organization-Id",
+                                        "value": "{{organization_id}}"
+                                   }
+                              ],
+                              "body": {
+                                   "mode": "raw",
+                                   "raw": "{\n    \"organizationId\": \"{{organization_id}}\",\n    \"firstName\": \"Carlos\",\n    \"lastName\": \"Rodríguez Díaz\",\n    \"documentType\": \"DNI\",\n    \"documentNumber\": \"55667788\",\n    \"email\": \"carlos.operador@gmail.com\",\n    \"phone\": \"934567890\",\n    \"address\": \"Jr. Independencia 101\",\n    \"zoneId\": \"{{zone_id}}\",\n    \"streetId\": \"{{street_id}}\",\n    \"role\": \"OPERATOR\"\n}"
+                              },
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users" ]
+                              },
+                              "description": "El ADMIN crea un OPERATOR para su organización"
+                         }
+                    },
+                    {
+                         "name": "6.3 Listar usuarios de la organización",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "ADMIN"
+                                   },
+                                   {
+                                        "key": "X-Organization-Id",
+                                        "value": "{{organization_id}}"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users/organization/{{organization_id}}",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users", "organization", "{{organization_id}}" ]
+                              },
+                              "description": "Lista todos los usuarios de la organización"
+                         }
+                    }
+               ]
+          },
+          {
+               "name": "07. Consultas adicionales",
+               "item": [
+                    {
+                         "name": "7.1 Obtener todos los usuarios",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users/all",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users", "all" ]
+                              },
+                              "description": "SUPER_ADMIN puede ver todos los usuarios del sistema"
+                         }
+                    },
+                    {
+                         "name": "7.2 Obtener organización por ID",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{super_admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "SUPER_ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/organizations/{{organization_id}}",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "organizations", "{{organization_id}}" ]
+                              },
+                              "description": "Obtiene detalles de una organización"
+                         }
+                    },
+                    {
+                         "name": "7.3 Obtener zona por ID",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/zones/{{zone_id}}",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "zones", "{{zone_id}}" ]
+                              },
+                              "description": "Obtiene detalles de una zona"
+                         }
+                    },
+                    {
+                         "name": "7.4 Obtener calle por ID",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{organizations_base_url}}/api/v1/streets/{{street_id}}",
+                                   "host": [ "{{organizations_base_url}}" ],
+                                   "path": [ "api", "v1", "streets", "{{street_id}}" ]
+                              },
+                              "description": "Obtiene detalles de una calle"
+                         }
+                    },
+                    {
+                         "name": "7.5 Buscar usuario por documento",
+                         "request": {
+                              "method": "GET",
+                              "header": [
+                                   {
+                                        "key": "X-User-Id",
+                                        "value": "{{admin_id}}"
+                                   },
+                                   {
+                                        "key": "X-User-Roles",
+                                        "value": "ADMIN"
+                                   }
+                              ],
+                              "url": {
+                                   "raw": "{{users_base_url}}/api/v1/users/document/11223344",
+                                   "host": [ "{{users_base_url}}" ],
+                                   "path": [ "api", "v1", "users", "document", "11223344" ]
+                              },
+                              "description": "Busca un usuario por número de documento"
+                         }
+                    }
+               ]
+          }
+     ]
+}

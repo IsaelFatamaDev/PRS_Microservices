@@ -23,7 +23,7 @@
   "iss": "http://keycloak:8080/realms/jass-digital",
   "sub": "uuid-user-keycloak",
   "typ": "Bearer",
-  "azp": "jass-backend",
+  "azp": "jass-users-service",
 
   // ✅ CLAIMSCUSTOMIZADOS (Configurados en Keycloak)
   "userId": "uuid-del-user-en-postgres",           // ID del User en vg-ms-users
@@ -412,11 +412,11 @@ public class CreateUserUseCaseImpl implements ICreateUserUseCase {
 }
 ```
 
-### 6.2 Client: jass-backend
+### 6.2 Client: jass-users-service
 
 ```json
 {
-  "clientId": "jass-backend",
+  "clientId": "jass-users-service",
   "enabled": true,
   "protocol": "openid-connect",
   "publicClient": false,

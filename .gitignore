@@ -1,3 +1,11 @@
 # Exclude target directories from all microservices
 target/
 **/target/
+vg-ms-users
+vg-ms-organizations
+vg-ms-authentication
+new-vg-ms-users
+new-ms-notifications
+new_notifications
+.vscode/
+

@@ -160,7 +160,7 @@ public class AuthRest {
     @PostMapping("/introspect")
     public Mono<ResponseEntity<IntrospectResponse>> introspect(
             @RequestParam String token,
-            @RequestParam(defaultValue = "jass-web-client") String clientId,
+            @RequestParam(defaultValue = "jass-users-service") String clientId,
             @RequestParam(required = false) String clientSecret) {
         log.debug("Introspect request");
         return validateTokenUseCase.introspect(token, clientId, clientSecret)
@@ -2074,7 +2074,7 @@ spring:
 keycloak:
   auth-server-url: http://localhost:9090
   realm: sistema-jass
-  client-id: jass-backend
+  client-id: jass-users-service
   client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
   admin:
     username: admin
@@ -2151,7 +2151,7 @@ spring:
 keycloak:
   auth-server-url: https://lab.vallegrande.edu.pe/jass/keycloak
   realm: sistema-jass
-  client-id: jass-backend
+  client-id: jass-users-service
   client-secret: ${KEYCLOAK_CLIENT_SECRET}
   admin:
     username: ${KEYCLOAK_ADMIN_USERNAME:admin}
