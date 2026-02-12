@@ -269,7 +269,7 @@
                               ],
                               "body": {
                                    "mode": "raw",
-                                   "raw": "{\n    \"organizationName\": \"JASS San Pedro de Lloc\",\n    \"district\": \"San Pedro de Lloc\",\n    \"province\": \"Pacasmayo\",\n    \"department\": \"La Libertad\",\n    \"address\": \"Calle Principal 123\",\n    \"phone\": \"044123456\",\n    \"email\": \"jass.sanpedro@gmail.com\"\n}"
+                                   "raw": "{\n    \"organizationName\": \"JASS San Pedro de Lloc\",\n    \"district\": \"San Pedro de Lloc\",\n    \"province\": \"Pacasmayo\",\n    \"department\": \"La Libertad\",\n    \"address\": \"Calle Principal 123\",\n    \"phone\": \"044123456\",\n    \"email\": \"jass.sanpedro@gmail.com\",\n    \"logoUrl\": \"https://ejemplo.com/logo.png\"\n}"
                               },
                               "url": {
                                    "raw": "{{organizations_base_url}}/api/v1/organizations",
